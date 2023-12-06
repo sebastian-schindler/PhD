@@ -29,17 +29,15 @@ def no_nan(array, *args):
 
 def cache_file(url):
 	"""Cache a remote file locally and return local path to the cache copy."""
-	
-	local = url.replace("ftp://", "").replace("http://", "").replace("https://", "")
 
-	if not pth.exists(local):
-		# trigger caching of file
-		try:
-			np.loadtxt(url)
-		except ValueError:
-			pass
+	from numpy.lib._datasource import DataSource
+
+	cache_dir = pth.join(pth.curdir, ".temp")
+
+	ds = DataSource(cache_dir)
+	ds.open(url).close()
 	
-	return local
+	return ds.abspath(url)
 
 
 import astropy.coordinates as coord
