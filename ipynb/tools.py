@@ -24,7 +24,7 @@ def no_nan(array, *args):
 		except TypeError:
 			print("Ignoring array no. %d in mask creation due to incompatible types" % (i+2))
 	
-	return [array[mask]] + [arg[mask] for arg in args]
+	return np.array( [array[mask]] + [arg[mask] for arg in args] )
 
 
 def cache_file(url):
