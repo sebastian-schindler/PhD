@@ -4,6 +4,7 @@ from tools_highdim import *
 import numpy as np
 
 import os.path as pth
+import warnings
 
 def no_nan(array, *args):
 	"""
@@ -11,6 +12,10 @@ def no_nan(array, *args):
 	For several arrays (of same shape): All positions that have a NaN in any of the arrays (i.e. the union of Nan positions) are removed from all arrays. A list of the arrays without NaNs is returned.
 	"""
 	
+	if array.ndim == 2:
+		warnings.warn("Interpreting 2-dimensional array as multiple inputs instead of flattening array.")
+		return no_nan(*array.T).T
+
 	mask = ~ np.isnan(array)
 	
 	if len(args) == 0:
