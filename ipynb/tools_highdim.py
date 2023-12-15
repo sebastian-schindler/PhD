@@ -138,3 +138,47 @@ def plot_tree():
 	plt.figure(figsize=(10, 6))
 	clusterer.condensed_tree_.plot(select_clusters=True, selection_palette=color_palette)
 
+
+def cluster_corner(data, labels=None, plot_kwargs={}, corner_kwargs={}, **kwargs):
+
+	corner_kwargs_ = dict(bins=100, range=np.array([np.nanmin(data, axis=0), np.nanmax(data, axis=0)]).T, labels=labels, plot_contours=False, plot_density=False)
+	plot_kwargs_ = dict(marker=',', alpha=0.1)
+	
+	plot_kwargs_.update(plot_kwargs)
+	corner_kwargs_.update(corner_kwargs)
+
+	if "approx_min_span_tree" not in kwargs:
+		kwargs["approx_min_span_tree"] = False
+
+
+	clusterer = hdbscan.HDBSCAN(**kwargs).fit(data)
+	n_cluster = clusterer.labels_.max() + 1
+	print("Found %d clusters" % n_cluster)
+
+	color_palette = sns.color_palette('dark', n_cluster)
+	color_palette.insert(0, (0.5, 0.5, 0.5))
+
+	fig = plt.figure(figsize=(20, 20))
+
+	kwargs = dict(corner_kwargs_)
+	kwargs.update(plot_datapoints=False)
+	fig = corner.corner(
+		no_nan(data), 
+		fig=fig, 
+		color=(0., 0., 0.), 
+		data_kwargs=dict(plot_kwargs_), **kwargs);
+
+	for label in range(-1, n_cluster):
+		mask = clusterer.labels_ == label
+		fig = corner.corner(
+			no_nan(data[mask]), 
+			fig=fig, 
+			color=color_palette[label], 
+			data_kwargs=dict(plot_kwargs_), **dict(corner_kwargs_));
+	
+	ndim = data.shape[1]
+	hists1d = np.array(fig.axes).reshape((ndim, ndim)).diagonal()
+	for ax in hists1d:
+		ax.autoscale(axis='y')
+
+	return clusterer
