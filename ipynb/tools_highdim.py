@@ -1,5 +1,11 @@
 # tools for high-dimensional explorative data analysis
 
+import numpy as np
+import matplotlib.pyplot as plt
+import corner
+
+from tools import *
+
 
 def plot_with_marginals(x, y, figsize=(10, 10), hist=False, log=False, SOI=None, names_1RXS=None):
 	"""2D plot (scatter plot or color histogram) with 1D histograms of the marginals at the sides. Adapted from: https://matplotlib.org/stable/gallery/lines_bars_and_markers/scatter_hist.html"""
@@ -139,7 +145,7 @@ def plot_tree():
 	clusterer.condensed_tree_.plot(select_clusters=True, selection_palette=color_palette)
 
 
-def cluster_corner(data, labels=None, plot_kwargs={}, corner_kwargs={}, **kwargs):
+def cluster_corner(data, labels=None, fig=None, plot_kwargs={}, corner_kwargs={}, **kwargs):
 
 	corner_kwargs_ = dict(bins=100, range=np.array([np.nanmin(data, axis=0), np.nanmax(data, axis=0)]).T, labels=labels, plot_contours=False, plot_density=False)
 	plot_kwargs_ = dict(marker=',', alpha=0.1)
@@ -158,7 +164,8 @@ def cluster_corner(data, labels=None, plot_kwargs={}, corner_kwargs={}, **kwargs
 	color_palette = sns.color_palette('dark', n_cluster)
 	color_palette.insert(0, (0.5, 0.5, 0.5))
 
-	fig = plt.figure(figsize=(20, 20))
+	if not fig:
+		fig = plt.figure(figsize=(20, 20))
 
 	kwargs = dict(corner_kwargs_)
 	kwargs.update(plot_datapoints=False)
@@ -181,4 +188,4 @@ def cluster_corner(data, labels=None, plot_kwargs={}, corner_kwargs={}, **kwargs
 	for ax in hists1d:
 		ax.autoscale(axis='y')
 
-	return clusterer
+	return fig
