@@ -6,6 +6,9 @@ import corner
 
 from tools import *
 
+import warnings
+warnings.filterwarnings("ignore", module="corner")
+
 
 def plot_with_marginals(x, y, figsize=(10, 10), hist=False, log=False, SOI=None, names_1RXS=None):
 	"""2D plot (scatter plot or color histogram) with 1D histograms of the marginals at the sides. Adapted from: https://matplotlib.org/stable/gallery/lines_bars_and_markers/scatter_hist.html"""
