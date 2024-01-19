@@ -180,8 +180,15 @@ def cluster_corner(data, labels=None, fig=None, plot_kwargs={}, corner_kwargs={}
 
 	for label in range(-1, n_cluster):
 		mask = clusterer.labels_ == label
+		data_cluster = no_nan(data[mask])
+
+		# circumvent assertion in corner package by adding first data as many times as needed
+		while data_cluster.shape[0] <= data_cluster.shape[1]:
+			data_cluster = np.concatenate((data_cluster, data_cluster[:1]))
+			print("padded data in cluster %d to circumvent assertion error" % label)
+
 		fig = corner.corner(
-			no_nan(data[mask]), 
+			data_cluster, 
 			fig=fig, 
 			color=color_palette[label], 
 			data_kwargs=dict(plot_kwargs_), **dict(corner_kwargs_));
