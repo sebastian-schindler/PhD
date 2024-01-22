@@ -148,7 +148,8 @@ def plot_tree():
 	clusterer.condensed_tree_.plot(select_clusters=True, selection_palette=color_palette)
 
 
-def cluster_corner(data, labels=None, fig=None, plot_kwargs={}, corner_kwargs={}, **kwargs):
+import plotly.graph_objects as go
+def cluster_corner(data, labels=None, fig=None, plot_kwargs={}, corner_kwargs={}, plot_3d=False, **kwargs):
 
 	corner_kwargs_ = dict(bins=100, range=np.array([np.nanmin(data, axis=0), np.nanmax(data, axis=0)]).T, labels=labels, plot_contours=False, plot_density=False)
 	plot_kwargs_ = dict(marker=',', alpha=0.1)
@@ -167,35 +168,60 @@ def cluster_corner(data, labels=None, fig=None, plot_kwargs={}, corner_kwargs={}
 	color_palette = sns.color_palette('dark', n_cluster)
 	color_palette.insert(0, (0.5, 0.5, 0.5))
 
-	if not fig:
-		fig = plt.figure(figsize=(20, 20))
+	if plot_3d:
+		markers = []
 
-	kwargs = dict(corner_kwargs_)
-	kwargs.update(plot_datapoints=False)
-	fig = corner.corner(
-		no_nan(data), 
-		fig=fig, 
-		color=(0., 0., 0.), 
-		data_kwargs=dict(plot_kwargs_), **kwargs);
+	else:
+		if not fig:
+			fig = plt.figure(figsize=(20, 20))
+		kwargs = dict(corner_kwargs_)
+		kwargs.update(plot_datapoints=False)
+		fig = corner.corner(
+			no_nan(data), 
+			fig=fig, 
+			color=(0., 0., 0.), 
+			data_kwargs=dict(plot_kwargs_), **kwargs);
 
 	for label in range(-1, n_cluster):
 		mask = clusterer.labels_ == label
 		data_cluster = no_nan(data[mask])
+
+		if data_cluster.shape[0] == 0:
+			continue
 
 		# circumvent assertion in corner package by adding first data as many times as needed
 		while data_cluster.shape[0] <= data_cluster.shape[1]:
 			data_cluster = np.concatenate((data_cluster, data_cluster[:1]))
 			print("padded data in cluster %d to circumvent assertion error" % label)
 
-		fig = corner.corner(
-			data_cluster, 
-			fig=fig, 
-			color=color_palette[label], 
-			data_kwargs=dict(plot_kwargs_), **dict(corner_kwargs_));
-	
-	ndim = data.shape[1]
-	hists1d = np.array(fig.axes).reshape((ndim, ndim)).diagonal()
-	for ax in hists1d:
-		ax.autoscale(axis='y')
+		if plot_3d:
+			marker = go.Scatter3d(
+				x=data_cluster.T[0], 
+				y=data_cluster.T[1], 
+				z=data_cluster.T[2], 
+				marker=go.scatter3d.Marker(size=1, color=color_palette[label]), 
+				opacity=1, 
+				mode='markers'
+			)
+			markers.append(marker)
+
+		else:
+			fig = corner.corner(
+				data_cluster, 
+				fig=fig, 
+				color=color_palette[label], 
+				data_kwargs=dict(plot_kwargs_), **dict(corner_kwargs_));
+
+	if plot_3d:
+		layout = go.Layout(height=1000)
+		fig = go.Figure(data=markers, layout=layout)
+		fig.update_layout(scene_aspectmode='cube')
+		fig.show()
+
+	else:
+		ndim = data.shape[1]
+		hists1d = np.array(fig.axes).reshape((ndim, ndim)).diagonal()
+		for ax in hists1d:
+			ax.autoscale(axis='y')
 
 	return fig
