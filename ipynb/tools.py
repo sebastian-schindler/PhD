@@ -13,7 +13,7 @@ def no_nan(array, *args):
 	"""
 	
 	if array.ndim == 2:
-		warnings.warn("Interpreting 2-dimensional array as multiple inputs instead of flattening array.")
+		print("Interpreting 2-dimensional array as multiple inputs instead of flattening array.")
 		return no_nan(*array.T).T
 
 	mask = ~ np.isnan(array)
@@ -27,7 +27,7 @@ def no_nan(array, *args):
 		try:
 			mask &= ~ np.isnan(arg)
 		except TypeError:
-			print("Ignoring array no. %d in mask creation due to incompatible types" % (i+2))
+			warnings.warn("Ignoring array no. %d in mask creation due to incompatible types" % (i+2))
 	
 	return np.array( [array[mask]] + [arg[mask] for arg in args] )
 
