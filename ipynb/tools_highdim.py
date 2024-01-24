@@ -225,3 +225,198 @@ def cluster_corner(data, labels=None, fig=None, plot_kwargs={}, corner_kwargs={}
 			ax.autoscale(axis='y')
 
 	return fig
+
+
+def do_clustering(data, **kwargs):
+	"""Perform unsupervised clustering of data with HDBScan algorithm.
+	
+	data: Data points in arbitrary dimensions to be clustered, array of shape (n_samples, n_dims)."""
+
+	kwargs_hdbscan = dict(approx_min_span_tree=False)
+	kwargs_hdbscan.update(kwargs)
+
+	clusterer = hdbscan.HDBSCAN(**kwargs_hdbscan).fit(data)
+	n_cluster = clusterer.labels_.max() + 1
+
+	print("Found %d clusters:" % n_cluster)
+	for label in range(-1, n_cluster):
+		n_entries = np.sum(clusterer.labels_ == label)
+		print(" cluster %d: %d entries (%.2f %%)" % (
+			label, 
+			n_entries, 
+			n_entries / len(clusterer.labels_) * 100
+		))
+
+	return data, clusterer.labels_, clusterer.probabilities_
+
+
+def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, **kwargs):
+	"""Plot clustered data in various forms.
+	
+	data: Data points in arbitrary dimensions, array of shape (n_samples, n_dims).
+	plot_type: Type of plot to produce. '2d': detailled 2D plot with dendrogram; '3d': plotly 3D plot (3 dimensions only); 'corner': corner (triangle) plot; 'umap': UMAP embedding into two dimensions.
+
+	If the data has been clustered previously, provide the following to color-code clusters:
+	cluster_labels: Cluster label (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
+	cluster_probs: Probability of cluster association for all data points, array of length n_samples.
+	
+	kwargs will be passed to the final plot function."""
+
+	n_dim = data.shape[1]
+
+	if n_dim < 2:
+		raise ValueError("Cannot plot clusters of 1D data.")
+
+	if plot_type == '3d' and n_dim != 3:
+		plot_type = None
+		print("Cannot plot 3D plot for dimensions other than 3. Reverting plot type to default.")
+
+	if plot_type is None:
+		if n_dim == 2:
+			plot_type = '2d'
+			print("Using detailed 2D plot type.")
+		else:
+			plot_type = 'corner'
+			print("Using corner plot type.")
+
+	if plot_type == '2d' and n_dim > 2:
+		print("Using the first two dimensions for producing detailed 2D plot of %d dimensions." % n_dim)
+
+	if n_dim > 30:
+		warnings.warn("Do you really want to produce a corner plot of %d dimensions? Consider using a UMAP embedding instead." % n_dim)
+
+
+	if cluster_labels is None:
+		cluster_labels = np.full(len(data), 0)
+	if cluster_probs is None:
+		cluster_probs = np.full(len(data), 1)
+
+	n_cluster = cluster_labels.max() + 1
+	color_palette = sns.color_palette('dark', n_cluster)
+
+	# grey for unclustered data
+	color_palette.append((0.5, 0.5, 0.5))
+
+	cluster_colors = [color_palette[x] for x in cluster_labels]
+	cluster_colors_prob = [sns.desaturate(x, p) for x, p in zip(cluster_colors, cluster_probs)]
+
+
+	# dummies
+	def _loop(data_cluster, label):
+		return
+	def _finish():
+		return
+
+
+	if plot_type == 'corner':
+		import corner
+		import copy
+
+		kwargs_corner = dict(
+			bins = 100, 
+			range = np.array([np.nanmin(data, axis=0), np.nanmax(data, axis=0)]).T, 
+			plot_contours = False, 
+			plot_density = False, 
+			data_kwargs=dict(marker=',', alpha=.1)
+		)
+		kwargs_corner.update(kwargs)
+
+		figsize = min(max(8, n_dim * 2), 24)
+
+		# 1D histograms of entire distribution
+		kwargs_ = dict(kwargs_corner)
+		kwargs_.update(plot_datapoints=False)
+		corner.corner(
+			no_nan(data), 
+			fig=plt.figure(figsize=(figsize, figsize)), 
+			color='black', 
+			**kwargs_);
+
+		def _loop(data_cluster, label):
+
+			# circumvent assertion in corner package by adding first data as many times as needed
+			while data_cluster.shape[0] <= data_cluster.shape[1]:
+				data_cluster = np.concatenate((data_cluster, data_cluster[:1]))
+				print("Padded data in cluster %d to circumvent assertion error." % label)
+
+			corner.corner(
+				data_cluster, 
+				fig=plt.gcf(), 
+				color=color_palette[label], 
+				**copy.deepcopy(kwargs_corner));
+
+		def _finish():
+			hists1d = np.array(plt.gcf().axes)
+			hists1d = hists1d.reshape((n_dim, n_dim))
+			hists1d = hists1d.diagonal()
+			for ax in hists1d:
+				ax.autoscale(axis='y')
+
+
+	if plot_type == '3d':
+		import plotly.graph_objects as go
+		import matplotlib.colors as mpl_colors
+
+		kwargs_plotly = dict(
+			size = 1, 
+			opacity = 1
+		)
+		kwargs_plotly.update(kwargs)
+
+		markers = []
+		def _loop(data_cluster, label):
+			marker = go.Scatter3d(
+				x=data_cluster.T[0], 
+				y=data_cluster.T[1], 
+				z=data_cluster.T[2], 
+				marker=go.scatter3d.Marker(color=mpl_colors.to_hex(color_palette[label]), **kwargs_plotly), 
+				mode='markers'
+			)
+			markers.append(marker)
+
+		def _finish():
+			layout = go.Layout(height=1000)
+			fig = go.Figure(data=markers, layout=layout)
+			fig.update_layout(scene_aspectmode='cube')
+			fig.show()
+
+
+	if plot_type == 'umap':
+		import umap
+		from matplotlib.patches import Patch
+
+		kwargs_umap = dict(
+			s = .1
+		)
+		kwargs_umap.update(kwargs)
+
+		print("Running UMAP...")
+		reducer = umap.UMAP()
+		embedding = reducer.fit_transform(data)
+
+		plt.scatter(embedding.T[0], embedding.T[1], c=cluster_colors_prob, **kwargs_umap)
+
+		handles = []
+		def _loop(data_cluster, label):
+			handle = Patch(color=color_palette[label], label="cluster %d" % label)
+			handles.append(handle)
+
+		def _finish():
+			plt.legend(handles=handles)
+
+
+	if plot_type == '2d':
+		raise NotImplementedError()
+
+
+	# loop over clusters, independent of plot type
+	for label in range(-1, n_cluster):
+		mask = cluster_labels == label
+		data_cluster = no_nan(data[mask])
+
+		if len(data_cluster) == 0:
+			continue
+
+		_loop(data_cluster, label)
+
+	_finish()
