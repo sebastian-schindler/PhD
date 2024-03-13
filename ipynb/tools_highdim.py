@@ -228,9 +228,22 @@ def cluster_corner(data, labels=None, fig=None, plot_kwargs={}, corner_kwargs={}
 
 
 def do_clustering(data, **kwargs):
-	"""Perform unsupervised clustering of data with HDBScan algorithm.
+	"""
+	Perform unsupervised clustering of data with HDBScan algorithm.
 	
-	data: Data points in arbitrary dimensions to be clustered, array of shape (n_samples, n_dims)."""
+	Parameters
+	----------
+	data: Data points in arbitrary dimensions to be clustered, array of shape (n_samples, n_dims).
+	
+	Returns
+	-------
+	data
+		The same data object that was passed in for convenience.
+	cluster_labels
+		Label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
+	cluster_probabilities
+		Probability of cluster association for all data points, array of length n_samples.
+	"""
 
 	kwargs_hdbscan = dict(approx_min_span_tree=False)
 	kwargs_hdbscan.update(kwargs)
@@ -251,17 +264,26 @@ def do_clustering(data, **kwargs):
 
 
 def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, fig=None, **kwargs):
-	"""Plot clustered data in various forms.
-	
-	data: Data points in arbitrary dimensions, array of shape (n_samples, n_dims).
-	plot_type: Type of plot to produce. '2d': detailled 2D plot with dendrogram; '3d': plotly 3D plot (3 dimensions only); 'corner': corner (triangle) plot; 'umap': UMAP embedding into two dimensions.
+	"""
+	Plot clustered data in various forms.
+
+	Parameters
+	----------
+	data
+		Data points in arbitrary dimensions, array of shape (n_samples, n_dims).
+	plot_type
+		Type of plot to produce. '2d': detailled 2D plot with dendrogram; '3d': plotly 3D plot (3 dimensions only); 'corner': corner (triangle) plot; 'umap': UMAP embedding into two dimensions.
+	fig
+		matplotlib.figure object to re-use. If omitted, create new object with suitable figure size based on the number of dimensions.
 
 	If the data has been clustered previously, provide the following to color-code clusters:
-	cluster_labels: Cluster label (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
-	cluster_probs: Probability of cluster association for all data points, array of length n_samples.
-	figsize: Size in inches of a matplotlib figure to use. If omitted, will choose an appropriate size automatically.
+	cluster_labels
+		Label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
+	cluster_probs
+		Probability of cluster association for all data points, array of length n_samples.
 	
-	kwargs will be passed to the final plot function."""
+	kwargs will be passed to the final plot function.
+	"""
 
 	n_dim = data.shape[1]
 
