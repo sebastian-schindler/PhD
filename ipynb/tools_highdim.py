@@ -234,7 +234,7 @@ def do_clustering(data, **kwargs):
 
 	kwargs_hdbscan = dict(approx_min_span_tree=False)
 	kwargs_hdbscan.update(kwargs)
-
+	
 	clusterer = hdbscan.HDBSCAN(**kwargs_hdbscan).fit(data)
 	n_cluster = clusterer.labels_.max() + 1
 
@@ -250,7 +250,7 @@ def do_clustering(data, **kwargs):
 	return data, clusterer.labels_, clusterer.probabilities_
 
 
-def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, **kwargs):
+def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, fig=None, **kwargs):
 	"""Plot clustered data in various forms.
 	
 	data: Data points in arbitrary dimensions, array of shape (n_samples, n_dims).
@@ -259,6 +259,7 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 	If the data has been clustered previously, provide the following to color-code clusters:
 	cluster_labels: Cluster label (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
 	cluster_probs: Probability of cluster association for all data points, array of length n_samples.
+	figsize: Size in inches of a matplotlib figure to use. If omitted, will choose an appropriate size automatically.
 	
 	kwargs will be passed to the final plot function."""
 
@@ -284,7 +285,6 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 
 	if n_dim > 30:
 		warnings.warn("Do you really want to produce a corner plot of %d dimensions? Consider using a UMAP embedding instead." % n_dim)
-
 
 	if cluster_labels is None:
 		cluster_labels = np.full(len(data), 0)
@@ -321,15 +321,19 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 		)
 		kwargs_corner.update(kwargs)
 
-		figsize = min(max(8, n_dim * 2), 24)
+		if fig is None:
+			figsize = min(max(8, n_dim * 2), 24)
+			fig = plt.figure(figsize=(figsize, figsize))
 
 		# 1D histograms of entire distribution
 		kwargs_ = dict(kwargs_corner)
-		kwargs_.update(plot_datapoints=False)
+		kwargs_.update(
+			plot_datapoints=False, 
+			color='black')
 		corner.corner(
 			no_nan(data), 
-			fig=plt.figure(figsize=(figsize, figsize)), 
-			color='black', 
+			fig=fig, 
+			# fig=plt.figure(figsize=(figsize, figsize)), 
 			**kwargs_);
 
 		def _loop(data_cluster, label):
@@ -339,11 +343,16 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 				data_cluster = np.concatenate((data_cluster, data_cluster[:1]))
 				print("Padded data in cluster %d to circumvent assertion error." % label)
 
+			kwargs_ = dict(color=color_palette[label])
+			kwargs_.update(copy.deepcopy(kwargs_corner)) # deepcopy: https://github.com/dfm/corner.py/issues/251
+			# kwargs_ = copy.deepcopy(kwargs_corner)
+			# kwargs_.update(
+			# 	color=color_palette[label]
+			# )
 			corner.corner(
 				data_cluster, 
 				fig=plt.gcf(), 
-				color=color_palette[label], 
-				**copy.deepcopy(kwargs_corner));
+				**kwargs_);
 
 		def _finish():
 			hists1d = np.array(plt.gcf().axes)
