@@ -107,8 +107,30 @@ def plt_skyplot(ra, dec, galactic=False, galaxy=False, figsize=[16,8], **kwargs)
 import pickle as pkl
 
 def pickle(obj, filename):
+	"""
+	Save an object to a pickle file. Dumb wrapper for dumb people (or those that can never remember the one-liner).
+	
+	Parameters
+	----------
+	obj
+		Any python object to save.
+	filename
+		A path where to save the pickle file. Recommended file extension is *.pkl.
+	"""
 	pkl.dump(obj, open(filename, 'wb'))
 
 def unpickle(filename):
-	pkl.load(open(filename, 'rb'))
+	"""
+	Load a pickled object from a pickle file. Dumb wrapper for dumb people (or those that can never remember the one-liner).
+	
+	Parameters
+	----------
+	filename
+		A path to a pickle file.
+	
+	Returns
+	-------
+		The object in the pickle file, duh.
+	"""
+	return pkl.load(open(filename, 'rb'))
 
