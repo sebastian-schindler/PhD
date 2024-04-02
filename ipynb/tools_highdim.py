@@ -229,11 +229,12 @@ def cluster_corner(data, labels=None, fig=None, plot_kwargs={}, corner_kwargs={}
 
 def do_clustering(data, **kwargs):
 	"""
-	Perform unsupervised clustering of data with HDBScan algorithm.
+	Perform unsupervised clustering of data with HDBSCAN algorithm.
 	
 	Parameters
 	----------
-	data: Data points in arbitrary dimensions to be clustered, array of shape (n_samples, n_dims).
+	data
+		Data points in arbitrary dimensions to be clustered, array of shape (n_samples, n_dims).
 	
 	Returns
 	-------
@@ -261,6 +262,71 @@ def do_clustering(data, **kwargs):
 		))
 
 	return data, clusterer.labels_, clusterer.probabilities_
+
+
+import tempfile
+import awkward as ak
+def do_clustering_scan(data, scan_cluster_size, scan_samples=None):
+	"""
+	Perform unsupervised clustering of data with HDBSCAN algorithm, scanning through hyperparameters min_cluster_size and min_samples of HDBSCAN.
+
+	Parameters
+	----------
+	data
+		Data points in arbitrary dimensions to be clustered, array of shape (n_samples, n_dims).
+	scan_cluster_size
+		Tuple (min, max, step) for scanning the min_cluster_size parameter of HDBSCAN. If step size is omitted, will be set to 1.
+	scan_samples
+		Tuple (min, max, step) for scanning the min_samples parameter of HDBSCAN. If step size is omitted, will be set to 1. If omitted entirely, will be set to cover the entire parameter space, i.e. (1, max(scan_cluster_size)).
+	Alternatively, for both scan_* parameters, a (non-tuple) iterable can be provided that already contains the scan values.
+
+	Returns
+	-------
+	Awkward array with min_samples/min_cluster_size scan points along first/second axis. Third axis contains the numbers of points of each cluster, starting with unclustered points. Because the number of clusters is variable, this third axis has variable length.
+	"""
+
+	def create_iterable(scan_parameter):
+		if type(scan_parameter) != tuple: # list to iterate
+			return scan_parameter
+		else: # (min, max, step)
+			if len(scan_parameter) < 3: # (min, max) or (max, min) --> (min, max, 1)
+				return range(min(scan_parameter), max(scan_parameter) + 1, 1)
+			else:
+				return range(scan_parameter[0], scan_parameter[1] + scan_parameter[2], scan_parameter[2])
+	
+	iter_cluster_size = create_iterable(scan_cluster_size)
+
+	if scan_samples is None:
+		scan_samples = (1, max(iter_cluster_size))
+	iter_samples = create_iterable(scan_samples)
+
+	if min(iter_samples) > min(iter_cluster_size) or max(iter_samples) > max(iter_cluster_size):
+		raise ValueError("Only values of min_cluster_size equal to or larger than min_samples make sense! Therefore minimum/maximum of scan_samples must be smaller than minimum/maximum of scan_cluster_size.")
+
+	print("scan range: %d <= min_samples <= %d | %d <= min_cluster_size <= %d" % (min(iter_samples), max(iter_samples), min(iter_cluster_size), max(iter_cluster_size)))
+
+	builder = ak.ArrayBuilder()
+
+	for min_samples in iter_samples:
+
+		builder.begin_list()
+
+		with tempfile.TemporaryDirectory() as cachedir:
+			for min_cluster_size in iter_cluster_size:
+
+				print("\nmin_samples = %d | min_cluster_size = %d" % (min_samples, min_cluster_size))
+
+				_, labels, _ = do_clustering(data, min_cluster_size=min_cluster_size, min_samples=min_samples, memory=cachedir)
+
+				_, counts = np.unique(labels, return_counts=True)
+				if -1 not in labels:
+					counts = np.insert(counts, 0, 0)
+
+				builder.append(counts)
+
+		builder.end_list()
+
+	return builder.snapshot()
 
 
 def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, fig=None, **kwargs):
