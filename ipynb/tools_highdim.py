@@ -227,7 +227,7 @@ def cluster_corner(data, labels=None, fig=None, plot_kwargs={}, corner_kwargs={}
 	return fig
 
 
-def do_clustering(data, **kwargs):
+def do_clustering(data, verbosity=2, **kwargs):
 	"""
 	Perform unsupervised clustering of data with HDBSCAN algorithm.
 	
@@ -244,6 +244,8 @@ def do_clustering(data, **kwargs):
 		Label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
 	cluster_probabilities
 		Probability of cluster association for all data points, array of length n_samples.
+	verbosity
+		Verbosity level of the logging: 0 = no logging, 2 = max logging.
 	"""
 
 	kwargs_hdbscan = dict(approx_min_span_tree=False)
@@ -252,21 +254,56 @@ def do_clustering(data, **kwargs):
 	clusterer = hdbscan.HDBSCAN(**kwargs_hdbscan).fit(data)
 	n_cluster = clusterer.labels_.max() + 1
 
-	print("Found %d clusters:" % n_cluster)
+	if verbosity == 1:
+		print("Found %d clusters" % n_cluster)
+	elif verbosity >= 2:
+		print("Found %d clusters:" % n_cluster)
+
 	for label in range(-1, n_cluster):
 		n_entries = np.sum(clusterer.labels_ == label)
-		print(" cluster %d: %d entries (%.2f %%)" % (
-			label, 
-			n_entries, 
-			n_entries / len(clusterer.labels_) * 100
-		))
+		if verbosity >= 2:
+			print(" cluster %d: %d entries (%.2f %%)" % (
+				label, 
+				n_entries, 
+				n_entries / len(clusterer.labels_) * 100
+			))
 
 	return data, clusterer.labels_, clusterer.probabilities_
 
 
+class ClusteringScanHelper:
+	"""
+	Helper for multiprocess hyperparameter scan with HDBSCAN.
+	"""
+
+	def __init__(self, data, iter_cluster_size) -> None:
+		self.data = data
+		self.iter_cluster_size = iter_cluster_size
+
+	def scan_cached(self, min_samples):
+
+		count_list = []
+
+		print("scanning: min_samples = %d ..." % min_samples, flush=True)
+
+		with tempfile.TemporaryDirectory() as cachedir:
+			for min_cluster_size in self.iter_cluster_size:
+
+				_, labels, _ = do_clustering(self.data, min_cluster_size=min_cluster_size, min_samples=min_samples, memory=cachedir, verbosity=0)
+
+				_, counts = np.unique(labels, return_counts=True)
+				if -1 not in labels:
+					counts = np.insert(counts, 0, 0)
+
+				count_list.append(counts)
+
+		return count_list
+
 import tempfile
 import awkward as ak
-def do_clustering_scan(data, scan_cluster_size, scan_samples=None):
+from concurrent.futures import ProcessPoolExecutor
+import os
+def do_clustering_scan(data, scan_cluster_size, scan_samples=None, n_processes=os.cpu_count()-2):
 	"""
 	Perform unsupervised clustering of data with HDBSCAN algorithm, scanning through hyperparameters min_cluster_size and min_samples of HDBSCAN.
 
@@ -279,6 +316,8 @@ def do_clustering_scan(data, scan_cluster_size, scan_samples=None):
 	scan_samples
 		Tuple (min, max, step) for scanning the min_samples parameter of HDBSCAN. If step size is omitted, will be set to 1. If omitted entirely, will be set to cover the entire parameter space, i.e. (1, max(scan_cluster_size)).
 	Alternatively, for both scan_* parameters, a (non-tuple) iterable can be provided that already contains the scan values.
+	n_processes
+		Number of parallel processes to use for the hyperparameter scan. Defaults to the available number of CPUs reduced by 2.
 
 	Returns
 	-------
@@ -305,26 +344,12 @@ def do_clustering_scan(data, scan_cluster_size, scan_samples=None):
 
 	print("scan range: %d <= min_samples <= %d | %d <= min_cluster_size <= %d" % (min(iter_samples), max(iter_samples), min(iter_cluster_size), max(iter_cluster_size)))
 
+	helper = ClusteringScanHelper(data, iter_cluster_size)
+	with ProcessPoolExecutor(max_workers=n_processes) as pool:
+		count_lists = pool.map(helper.scan_cached, iter_samples)
+
 	builder = ak.ArrayBuilder()
-
-	for min_samples in iter_samples:
-
-		builder.begin_list()
-
-		with tempfile.TemporaryDirectory() as cachedir:
-			for min_cluster_size in iter_cluster_size:
-
-				print("\nmin_samples = %d | min_cluster_size = %d" % (min_samples, min_cluster_size))
-
-				_, labels, _ = do_clustering(data, min_cluster_size=min_cluster_size, min_samples=min_samples, memory=cachedir)
-
-				_, counts = np.unique(labels, return_counts=True)
-				if -1 not in labels:
-					counts = np.insert(counts, 0, 0)
-
-				builder.append(counts)
-
-		builder.end_list()
+	[builder.append(l) for l in count_lists]
 
 	return builder.snapshot()
 
