@@ -121,7 +121,25 @@ def pickle(filename, *obj):
 	-------
 		The same object as passed in (so that this wrapper is fully transparent).
 	"""
-	pkl.dump(obj, open(filename, 'wb'))
+	# PICKLED_IDENTIFIER = "#PICKLETUPLE"
+
+	# if not overwrite and pth.exists(filename):
+	# 	pickled = unpickle(filename)
+	# 	if type(pickled) == tuple and pickled[0] == PICKLED_IDENTIFIER:
+	# 		topickle = pickled + obj
+	# 	else:
+	# 		topickle = (PICKLED_IDENTIFIER, pickled, obj)
+	# else:
+	# 	topickle = obj
+
+	# pkl.dump(topickle, open(filename, 'wb'))
+
+	topickle = obj
+	if len(obj) == 1:
+		topickle = obj[0]
+
+	pkl.dump(topickle, open(filename, 'wb'))
+
 	return obj
 
 
