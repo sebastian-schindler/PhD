@@ -303,7 +303,7 @@ import tempfile
 import awkward as ak
 from concurrent.futures import ProcessPoolExecutor
 import os
-def do_clustering_scan(data, scan_cluster_size, scan_samples=None, n_processes=os.cpu_count()-2):
+def do_clustering_scan(data, scan_cluster_size, scan_samples=None, n_processes=os.cpu_count()-2, return_range=False):
 	"""
 	Perform unsupervised clustering of data with HDBSCAN algorithm, scanning through hyperparameters min_cluster_size and min_samples of HDBSCAN.
 
@@ -318,10 +318,13 @@ def do_clustering_scan(data, scan_cluster_size, scan_samples=None, n_processes=o
 	Alternatively, for both scan_* parameters, a (non-tuple) iterable can be provided that already contains the scan values.
 	n_processes
 		Number of parallel processes to use for the hyperparameter scan. Defaults to the available number of CPUs reduced by 2.
+	return_range
+		Whether to additionally return the finally used hyperparameter scan range.
 
 	Returns
 	-------
 	Awkward array with min_samples/min_cluster_size scan points along first/second axis. Third axis contains the numbers of points of each cluster, starting with unclustered points. Because the number of clusters is variable, this third axis has variable length.
+	If return_range is True, will return the minimum and maximum of the two hyperparameters as a 4-tuple as a second value.
 	"""
 
 	def create_iterable(scan_parameter):
@@ -350,8 +353,12 @@ def do_clustering_scan(data, scan_cluster_size, scan_samples=None, n_processes=o
 
 	builder = ak.ArrayBuilder()
 	[builder.append(l) for l in count_lists]
+	result = builder.snapshot()
 
-	return builder.snapshot()
+	if return_range:
+		return result, (min(iter_cluster_size), max(iter_cluster_size), min(iter_samples), max(iter_samples))
+	else:
+		return result
 
 
 def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, fig=None, **kwargs):
