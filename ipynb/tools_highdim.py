@@ -549,3 +549,43 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 		_loop(data_cluster, label)
 
 	_finish()
+
+
+def get_corner_axes(which='all', fig=None):
+	"""
+	Return specific axes of a corner plot as a list (e.g. to perform some operation on them).
+	Axes with the label "NOCORNER" are ignored.
+
+	Parameters
+	----------
+	which
+		Which axes to return.
+		all: all fixed axes, i.e. all 2D and 1D distributions
+		corner: lower corner, i.e. all 2D distributions
+		diag: diagonal, i.e. all 1D distributions
+	fig
+		Figure to use. If omitted, will use the current figure.
+
+	Returns
+	-------
+		A list of the requested axes objects.
+	"""
+	if fig is None:
+		fig = plt.gcf()
+
+	# remove axes with magic label
+	axes = [ax for ax in fig.axes if ax.get_label() != "NOCORNER"]
+
+	n_ax = int(np.floor(np.sqrt(len(axes))))
+	axes_grid = np.array(axes).reshape((n_ax, n_ax))
+
+	if which == 'all':
+		toreturn = np.tril(axes_grid, k=0)
+		toreturn = toreturn[toreturn != 0]
+	if which == 'corner':
+		toreturn = np.tril(axes_grid, k=-1)
+		toreturn = toreturn[toreturn != 0]
+	elif which == 'diag':
+		toreturn = axes_grid.diagonal()
+
+	return list(toreturn.flatten())
