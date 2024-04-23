@@ -227,138 +227,270 @@ def cluster_corner(data, labels=None, fig=None, plot_kwargs={}, corner_kwargs={}
 	return fig
 
 
-def do_clustering(data, verbosity=2, **kwargs):
+import tempfile
+import awkward as ak
+from concurrent import futures
+import os
+import h5py
+class HDBScanClustering:
 	"""
-	Perform unsupervised clustering of data with HDBSCAN algorithm.
-	
-	Parameters
-	----------
-	data
-		Data points in arbitrary dimensions to be clustered, array of shape (n_samples, n_dims).
-	
-	Returns
-	-------
-	data
-		The same data object that was passed in for convenience.
-	cluster_labels
-		Label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
-	cluster_probabilities
-		Probability of cluster association for all data points, array of length n_samples.
-	verbosity
-		Verbosity level of the logging: 0 = no logging, 2 = max logging.
+	Perform unsupervised clustering of data with HDBSCAN algorithm. Run a single execution with `.cluster()`, or prepare a hyperparameter scan with `.HyperparameterScan()`.
 	"""
 
-	kwargs_hdbscan = dict(approx_min_span_tree=False)
-	kwargs_hdbscan.update(kwargs)
-	
-	clusterer = hdbscan.HDBSCAN(**kwargs_hdbscan).fit(data)
-	n_cluster = clusterer.labels_.max() + 1
-
-	if verbosity == 1:
-		print("Found %d clusters" % n_cluster)
-	elif verbosity >= 2:
-		print("Found %d clusters:" % n_cluster)
-
-	for label in range(-1, n_cluster):
-		n_entries = np.sum(clusterer.labels_ == label)
-		if verbosity >= 2:
-			print(" cluster %d: %d entries (%.2f %%)" % (
-				label, 
-				n_entries, 
-				n_entries / len(clusterer.labels_) * 100
-			))
-
-	return data, clusterer.labels_, clusterer.probabilities_
-
-
-class ClusteringScanHelper:
-	"""
-	Helper for multiprocess hyperparameter scan with HDBSCAN.
-	"""
-
-	def __init__(self, data, iter_cluster_size) -> None:
+	def __init__(self, data) -> None:
 		self.data = data
-		self.iter_cluster_size = iter_cluster_size
+		self._scan_mode = None
 
-	def scan_cached(self, min_samples):
 
-		count_list = []
+	@classmethod
+	def _get_cluster_counts(cls, cluster_labels):
+		_, counts = np.unique(cluster_labels, return_counts=True)
+		if -1 not in cluster_labels:  # unclustered points not guaranteed to exist
+			counts = np.insert(counts, 0, 0)
+		return counts
+
+
+	def _scan(self, min_samples):
+
+		if self._scan_mode == "summary":
+			result = []
+		elif self._scan_mode == "full":
+			result = np.empty((len(self.iter_cluster_size), len(self.data)))  # for each value of min_cluster_size: cluster label for each data point
 
 		print("scanning: min_samples = %d ..." % min_samples, flush=True)
 
 		with tempfile.TemporaryDirectory() as cachedir:
-			for min_cluster_size in self.iter_cluster_size:
+			for i, min_cluster_size in enumerate(self.iter_cluster_size):
 
-				_, labels, _ = do_clustering(self.data, min_cluster_size=min_cluster_size, min_samples=min_samples, memory=cachedir, verbosity=0)
+				_, cluster_labels, _ = do_clustering(self.data, min_cluster_size=min_cluster_size, min_samples=min_samples, memory=cachedir, verbosity=0)
 
-				_, counts = np.unique(labels, return_counts=True)
-				if -1 not in labels:
-					counts = np.insert(counts, 0, 0)
+				if self._scan_mode == "summary":
+					result.append(self._get_cluster_counts(cluster_labels))
 
-				count_list.append(counts)
+				elif self._scan_mode == "full":
+					result[i] = cluster_labels
 
-		return count_list
+		return min_samples, result  # return min_samples again to ensure correct assignment of result in multiprocess environment
 
-import tempfile
-import awkward as ak
-from concurrent.futures import ProcessPoolExecutor
-import os
-def do_clustering_scan(data, scan_cluster_size, scan_samples=None, n_processes=os.cpu_count()-2, return_range=False):
-	"""
-	Perform unsupervised clustering of data with HDBSCAN algorithm, scanning through hyperparameters min_cluster_size and min_samples of HDBSCAN.
 
-	Parameters
-	----------
-	data
-		Data points in arbitrary dimensions to be clustered, array of shape (n_samples, n_dims).
-	scan_cluster_size
-		Tuple (min, max, step) for scanning the min_cluster_size parameter of HDBSCAN. If step size is omitted, will be set to 1.
-	scan_samples
-		Tuple (min, max, step) for scanning the min_samples parameter of HDBSCAN. If step size is omitted, will be set to 1. If omitted entirely, will be set to cover the entire parameter space, i.e. (1, max(scan_cluster_size)).
-	Alternatively, for both scan_* parameters, a (non-tuple) iterable can be provided that already contains the scan values.
-	n_processes
-		Number of parallel processes to use for the hyperparameter scan. Defaults to the available number of CPUs reduced by 2.
-	return_range
-		Whether to additionally return the finally used hyperparameter scan range.
+	def HyperparameterScan(self, scan_cluster_size, scan_samples=None, n_processes=os.cpu_count()-2):
+		"""
+		Prepare a multiprocess-enabled scan through the HDBSCAN hyperparameters min_cluster_size and min_samples. Run the scan with `.scan_full()` or `.scan_summary()`.
 
-	Returns
-	-------
-	Awkward array with min_samples/min_cluster_size scan points along first/second axis. Third axis contains the numbers of points of each cluster, starting with unclustered points. Because the number of clusters is variable, this third axis has variable length.
-	If return_range is True, will return the minimum and maximum of the two hyperparameters as a 4-tuple as a second value.
-	"""
+		Parameters
+		----------
+		scan_cluster_size
+			Tuple (min, max, step) for scanning the min_cluster_size parameter of HDBSCAN. If step size is omitted, will be set to 1.
+		scan_samples
+			Tuple (min, max, step) for scanning the min_samples parameter of HDBSCAN. If step size is omitted, will be set to 1. If omitted entirely, will be set to cover the entire parameter space, i.e. (1, max(scan_cluster_size)).
+		Alternatively, for both scan_* parameters, a (non-tuple) iterable can be provided that already contains the scan values.
+		n_processes
+			Number of parallel processes to use for the hyperparameter scan. Defaults to the available number of CPUs reduced by 2.
+		"""
 
-	def create_iterable(scan_parameter):
-		if type(scan_parameter) != tuple: # list to iterate
-			return scan_parameter
-		else: # (min, max, step)
-			if len(scan_parameter) < 3: # (min, max) or (max, min) --> (min, max, 1)
-				return range(min(scan_parameter), max(scan_parameter) + 1, 1)
-			else:
-				return range(scan_parameter[0], scan_parameter[1] + scan_parameter[2], scan_parameter[2])
-	
-	iter_cluster_size = create_iterable(scan_cluster_size)
+		def create_iterable(scan_parameter):
+			if type(scan_parameter) != tuple: # list to iterate
+				return scan_parameter
+			else: # (min, max, step)
+				if len(scan_parameter) < 3: # (min, max) or (max, min) --> (min, max, 1)
+					return range(min(scan_parameter), max(scan_parameter) + 1, 1)
+				else:
+					return range(scan_parameter[0], scan_parameter[1] + scan_parameter[2], scan_parameter[2])
+		
+		self.iter_cluster_size = create_iterable(scan_cluster_size)
 
-	if scan_samples is None:
-		scan_samples = (1, max(iter_cluster_size))
-	iter_samples = create_iterable(scan_samples)
+		if scan_samples is None:
+			scan_samples = (1, max(self.iter_cluster_size))
+		self.iter_samples = create_iterable(scan_samples)
 
-	if min(iter_samples) > min(iter_cluster_size) or max(iter_samples) > max(iter_cluster_size):
-		raise ValueError("Only values of min_cluster_size equal to or larger than min_samples make sense! Therefore minimum/maximum of scan_samples must be smaller than minimum/maximum of scan_cluster_size.")
+		if min(self.iter_samples) > min(self.iter_cluster_size) or max(self.iter_samples) > max(self.iter_cluster_size):
+			raise ValueError("Only values of min_cluster_size equal to or larger than min_samples make sense! Therefore minimum/maximum of scan_samples must be smaller than minimum/maximum of scan_cluster_size.")
 
-	print("scan range: %d <= min_samples <= %d | %d <= min_cluster_size <= %d" % (min(iter_samples), max(iter_samples), min(iter_cluster_size), max(iter_cluster_size)))
+		print("Hyperparameter scan prepared with %d processes in parallel." % n_processes)
+		print("scan range: %d <= min_samples <= %d | %d <= min_cluster_size <= %d" % (min(self.iter_samples), max(self.iter_samples), min(self.iter_cluster_size), max(self.iter_cluster_size)))
 
-	helper = ClusteringScanHelper(data, iter_cluster_size)
-	with ProcessPoolExecutor(max_workers=n_processes) as pool:
-		count_lists = pool.map(helper.scan_cached, iter_samples)
+		self.n_processes = n_processes
+		self._scan_mode = ""
+		return self
 
-	builder = ak.ArrayBuilder()
-	[builder.append(l) for l in count_lists]
-	result = builder.snapshot()
 
-	if return_range:
-		return result, (min(iter_cluster_size), max(iter_cluster_size), min(iter_samples), max(iter_samples))
-	else:
+	def cluster(self, verbosity=2, **kwargs):
+		"""
+		Run single execution of HDBSCAN.
+		
+		Parameters
+		----------
+		verbosity
+			Verbosity level of the logging: 0 = no logging, 2 = max logging.
+		
+		Returns
+		-------
+		data
+			The same data object that was passed in for convenience.
+		cluster_labels
+			Label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
+		cluster_probabilities
+			Probability of cluster association for all data points, array of length n_samples.
+		"""
+
+		kwargs_hdbscan = dict(approx_min_span_tree=False)
+		kwargs_hdbscan.update(kwargs)
+		
+		clusterer = hdbscan.HDBSCAN(**kwargs_hdbscan).fit(self.data)
+		n_cluster = clusterer.labels_.max() + 1
+
+		if verbosity == 1:
+			print("Found %d clusters" % n_cluster)
+		elif verbosity >= 2:
+			print("Found %d clusters:" % n_cluster)
+
+		for label in range(-1, n_cluster):
+			n_entries = np.sum(clusterer.labels_ == label)
+			if verbosity >= 2:
+				print(" cluster %d: %d entries (%.2f %%)" % (
+					label, 
+					n_entries, 
+					n_entries / len(clusterer.labels_) * 100
+				))
+
+		return self.data, clusterer.labels_, clusterer.probabilities_
+
+
+	def scan_summary(self, return_range=True):
+		"""
+		After preparation with `.HyperparameterScan()`, run a summary-only scan. This retains only the number of points per cluster for each hyperparameter scan point, which is sufficient for later displaying the clustering as summary statistics.
+
+		Parameters
+		----------
+		return_range
+			Whether to additionally return the finally used hyperparameter scan range.
+
+		Returns
+		-------
+		Awkward array with min_samples/min_cluster_size scan points along first/second axis. Third axis contains the numbers of points of each cluster, starting with unclustered points. Because the number of clusters is variable, this third axis has variable length.
+		If return_range is True, returns as second value a tuple containing the scanned values of min_samples and min_cluster_size.
+		"""
+
+		if self._scan_mode is None:
+			raise RuntimeError("Hyperparameter scan was not prepared yet! Run `HyperparameterScan()` with appropriate arguments first to instantiate an `HDBScanClustering` object, and then call this method of the object.")
+		self._scan_mode = "summary"
+
+		with futures.ProcessPoolExecutor(max_workers=self.n_processes) as pool:
+			worker_results = pool.map(self._scan, self.iter_samples)
+
+		# sort according to hyperparameter, and keep only counts
+		counts_lists = [x[1] for x in sorted(worker_results, key=lambda x: x[0])]
+
+		builder = ak.ArrayBuilder()
+		[builder.append(l) for l in counts_lists]
+		result = builder.snapshot()
+
+		if return_range:
+			result = result, (self.iter_samples, self.iter_cluster_size)
 		return result
+
+
+	@classmethod
+	def summarize_scan(cls, input_file, dataset_name="HDBSCAN_scan", return_range=True):
+		"""
+		Summarize a full scan as if it were run with `.scan_summary` without running it again.
+
+		Parameters
+		----------
+		input_file
+			Path to an HDF5 file that contains a dataset with cluster label lists for each hyperparameter scan point.
+		dataset_name
+			Name of the dataset in the HDF5 file.
+		return_range
+			Whether to additionally return the finally used hyperparameter scan range.
+
+		Returns
+		-------
+		Awkward array with min_samples/min_cluster_size scan points along first/second axis. Third axis contains the numbers of points of each cluster, starting with unclustered points. Because the number of clusters is variable, this third axis has variable length.
+		If return_range is True, returns as second value a tuple containing the scanned values of min_samples and min_cluster_size.
+		"""
+
+		builder = ak.ArrayBuilder()
+
+		with h5py.File(input_file, 'r') as infile:
+
+			dataset = infile[dataset_name]
+			iter_samples = dataset.attrs["min_samples"]
+			iter_cluster_size = dataset.attrs["min_cluster_size"]
+
+			for i, min_samples in enumerate(iter_samples):
+				counts_list = []
+				for j, min_cluster_size in enumerate(iter_cluster_size):
+					cluster_labels = dataset[i,j]
+
+					try:
+						counts = cls._get_cluster_counts(cluster_labels)
+					except Exception as e:
+						print(type(cluster_labels))
+						print(cluster_labels.shape)
+						print(cluster_labels)
+						raise e
+
+					counts_list.append(counts)
+				builder.append(counts_list)
+
+		result = builder.snapshot()
+
+		if return_range:
+			result = result, (iter_samples, iter_cluster_size)
+		return result
+
+
+	def scan_full(self, output_file, datatset_name="HDBSCAN_scan"):
+		"""
+		After preparation with `.HyperparameterScan()`, run a full scan. This saves the entire clustering information for each hyperparameter scan point in an HDF5 file. The memory consumption is significantly larger than for `.scan_summary()`.
+
+		Parameters
+		----------
+		output_file
+			Path to an HDF5 file (existing or not) where the resulting cluster label lists are saved for each hyperparameter scan point.
+		dataset_name
+			Name of the dataset to add to the HDF5 file.
+		"""
+
+		if self._scan_mode is None:
+			raise RuntimeError("Hyperparameter scan was not prepared yet! Run `HyperparameterScan()` with appropriate arguments first to instantiate an `HDBScanClustering` object, and then call this method of the object.")
+		self._scan_mode = "full"
+
+		with h5py.File(output_file, 'a') as outfile:
+
+			dataset = outfile.create_dataset(datatset_name, shape=(len(self.iter_samples), len(self.iter_cluster_size), len(self.data)), dtype='int')
+			dataset.attrs["min_samples"] = self.iter_samples
+			dataset.attrs["min_cluster_size"] = self.iter_cluster_size
+
+			with futures.ProcessPoolExecutor(max_workers=self.n_processes) as pool:
+				workers = [pool.submit(self._scan, min_samples) for min_samples in self.iter_samples]
+				for worker in futures.as_completed(workers):  # iterates as soon as a worker is finished
+					min_samples, cluster_labels = worker.result()
+					index = self.iter_samples.index(min_samples)
+					dataset[index,:] = cluster_labels
+
+
+def do_clustering(data, verbosity=2, **kwargs):
+	"""Deprecated: Use `HDBScanClustering.cluster` instead."""
+	return HDBScanClustering(data).cluster(verbosity, **kwargs)
+
+
+def do_clustering_scan(data, scan_cluster_size, scan_samples=None, n_processes=os.cpu_count()-2, return_range=False):
+	"""Deprecated: Use `HDBScanClustering.HyperparameterScan` instead."""
+
+	scanner = HDBScanClustering(data).HyperparameterScan(scan_cluster_size, scan_samples, n_processes)
+	result = scanner.scan_summary(return_range)
+	
+	# old meaning of return_range
+	if return_range:
+		iter_samples, iter_cluster_size = result[1]
+		result = result[0], (
+			min(iter_cluster_size), max(iter_cluster_size),
+			min(iter_samples), max(iter_samples),
+		)
+
+	return result
 
 
 def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, fig=None, **kwargs):
