@@ -241,6 +241,10 @@ class HDBScanClustering:
 		self.data = data
 		self._scan_mode = None
 
+		self.hdbscan_args = dict(
+			approx_min_span_tree=False
+		)
+
 
 	@classmethod
 	def _get_cluster_counts(cls, cluster_labels):
@@ -262,7 +266,7 @@ class HDBScanClustering:
 		with tempfile.TemporaryDirectory() as cachedir:
 			for i, min_cluster_size in enumerate(self.iter_cluster_size):
 
-				_, cluster_labels, _ = do_clustering(self.data, min_cluster_size=min_cluster_size, min_samples=min_samples, memory=cachedir, verbosity=0)
+				_, cluster_labels, _ = self.cluster(verbosity=0, min_cluster_size=min_cluster_size, min_samples=min_samples, memory=cachedir)
 
 				if self._scan_mode == "summary":
 					result.append(self._get_cluster_counts(cluster_labels))
@@ -273,7 +277,7 @@ class HDBScanClustering:
 		return min_samples, result  # return min_samples again to ensure correct assignment of result in multiprocess environment
 
 
-	def HyperparameterScan(self, scan_cluster_size, scan_samples=None, n_processes=os.cpu_count()-2):
+	def HyperparameterScan(self, scan_cluster_size, scan_samples=None, n_processes=os.cpu_count()-2, **kwargs):
 		"""
 		Prepare a multiprocess-enabled scan through the HDBSCAN hyperparameters min_cluster_size and min_samples. Run the scan with `.scan_full()` or `.scan_summary()`.
 
@@ -286,6 +290,8 @@ class HDBScanClustering:
 		Alternatively, for both scan_* parameters, a (non-tuple) iterable can be provided that already contains the scan values.
 		n_processes
 			Number of parallel processes to use for the hyperparameter scan. Defaults to the available number of CPUs reduced by 2.
+		kwargs
+			Passed to `HDBSCAN`.
 		"""
 
 		def create_iterable(scan_parameter):
@@ -309,6 +315,7 @@ class HDBScanClustering:
 		print("Hyperparameter scan prepared with %d processes in parallel." % n_processes)
 		print("scan range: %d <= min_samples <= %d | %d <= min_cluster_size <= %d" % (min(self.iter_samples), max(self.iter_samples), min(self.iter_cluster_size), max(self.iter_cluster_size)))
 
+		self.hdbscan_args.update(kwargs)
 		self.n_processes = n_processes
 		self._scan_mode = ""
 		return self
@@ -331,9 +338,12 @@ class HDBScanClustering:
 			Label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
 		cluster_probabilities
 			Probability of cluster association for all data points, array of length n_samples.
+		kwargs
+			Passed to `HDBSCAN`.
 		"""
 
-		kwargs_hdbscan = dict(approx_min_span_tree=False)
+		# kwargs_hdbscan = dict(approx_min_span_tree=False)
+		kwargs_hdbscan = dict(self.hdbscan_args)
 		kwargs_hdbscan.update(kwargs)
 		
 		clusterer = hdbscan.HDBSCAN(**kwargs_hdbscan).fit(self.data)
@@ -544,7 +554,7 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 		cluster_probs = np.full(len(data), 1)
 
 	n_cluster = cluster_labels.max() + 1
-	color_palette = sns.color_palette('dark', n_cluster)
+	color_palette = sns.color_palette('bright', n_cluster)
 
 	# grey for unclustered data
 	color_palette.append((0.5, 0.5, 0.5))
@@ -603,15 +613,12 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 			# )
 			corner.corner(
 				data_cluster, 
-				fig=plt.gcf(), 
+				fig=fig, 
+				# fig=plt.gcf(), 
 				**kwargs_);
 
 		def _finish():
-			hists1d = np.array(plt.gcf().axes)
-			hists1d = hists1d.reshape((n_dim, n_dim))
-			hists1d = hists1d.diagonal()
-			for ax in hists1d:
-				ax.autoscale(axis='y')
+			[ax.autoscale(axis='y') for ax in get_corner_axes('diag', fig=fig)]
 
 
 	if plot_type == '3d':
@@ -721,3 +728,99 @@ def get_corner_axes(which='all', fig=None):
 		toreturn = axes_grid.diagonal()
 
 	return list(toreturn.flatten())
+
+
+def plot_hyperparameter_scan(data, cluster_scan, ranges, n_cluster_trunc=10, **kwargs):
+	"""
+	Plot the results of a HDBSCAN hyperparameter scan as a number of summary statistics.
+
+	Parameters
+	----------
+	data (array_like)
+		The data that has been clustered.
+	cluster_scan (array_like)
+		The result of the hyperparameter scan for clustering.
+	ranges (tuple)
+		Min and max values of min_cluster_size and of min_samples. Alternatively, the hyperparameter scan values from which the min and max values are taken.
+	n_cluster_trunc (int)
+		Maximum number of clusters to display.
+	kwargs
+		Additional keyword arguments to be passed to imshow().
+
+	Returns
+	-------
+	The generated `matplotlib.figure.Figure` object containing the plots.
+	"""
+
+
+	kwargs_imshow = dict(
+		aspect = 'auto',
+		interpolation = 'none',
+		origin='lower',
+		cmap='Blues'
+	)
+
+	if len(ranges) == 2:  # scan values provided of both hyperparameters
+		iter_samples, iter_cluster_size = ranges
+		kwargs_imshow["extent"] = min(iter_cluster_size), max(iter_cluster_size), min(iter_samples), max(iter_samples)
+	else:  # already min and max values provided
+		kwargs_imshow["extent"] = ranges
+
+	kwargs_imshow["extent"] = np.array(kwargs_imshow["extent"])
+
+	# fence post problem
+	kwargs_imshow["extent"][1] += 1
+	kwargs_imshow["extent"][3] += 1
+
+	# center bins at the respective values
+	kwargs_imshow["extent"] = np.array(kwargs_imshow["extent"]) - 0.5
+
+	kwargs_imshow.update(kwargs)
+
+	# I trust awkward functions this far...
+	number_clusters = np.array(ak.count(cluster_scan, axis=2)) - 1  # do not count unclustered
+	number_clusters[number_clusters > n_cluster_trunc] = n_cluster_trunc + 1
+	cluster_scan_sorted = ak.sort(cluster_scan[:,:,1:], axis=2, ascending=False)
+
+	shape = number_clusters.shape
+	norm = len(data)
+
+	size_max_cluster = np.full(shape, 0, dtype=float)
+	size_secmax_cluster = np.full(shape, 0, dtype=float)
+
+	# ... but no further: long live expressive for loops
+	for i in range(shape[0]):
+		for j in range(shape[1]):
+			try:
+				size_max_cluster[i,j] = cluster_scan_sorted[i,j][0]
+				size_secmax_cluster[i,j] = cluster_scan_sorted[i,j][1]
+			except IndexError:
+				pass
+
+	size_max_cluster /= norm
+	size_secmax_cluster /= norm
+
+	size_unclustered = cluster_scan[:,:,0] / norm
+
+
+	fig, axes = plt.subplots(1, 4, sharey=True, figsize=(20, 5))
+	axes[0].set_ylabel("HDBSCAN min_samples")
+	[ax.set_xlabel("HDBSCAN min_cluster_size") for ax in axes]
+
+	im = axes[0].imshow(number_clusters, **kwargs_imshow)
+	plt.colorbar(im, ax=axes[0])
+	axes[0].set_title("number of clusters")
+
+	im = axes[1].imshow(size_max_cluster, **kwargs_imshow)
+	plt.colorbar(im, ax=axes[1])
+	axes[1].set_title("rel. size of largest cluster")
+	
+	im = axes[2].imshow(size_secmax_cluster, **kwargs_imshow)
+	plt.colorbar(im, ax=axes[2])
+	axes[2].set_title("rel. size of second-largest cluster")
+	
+	im = axes[3].imshow(size_unclustered, **kwargs_imshow)
+	plt.colorbar(im, ax=axes[3])
+	axes[3].set_title("rel. size of unclustered points")
+
+	return fig
