@@ -739,7 +739,7 @@ def plot_hyperparameter_scan(data, cluster_scan, ranges, n_cluster_trunc=10, **k
 	data (array_like)
 		The data that has been clustered.
 	cluster_scan (array_like)
-		The result of the hyperparameter scan for clustering.
+		The result of a summarized hyperparameter scan for clustering (i.e. only cluster counts, not cluster labels for all points).
 	ranges (tuple)
 		Min and max values of min_cluster_size and of min_samples. Alternatively, the hyperparameter scan values from which the min and max values are taken.
 	n_cluster_trunc (int)
@@ -822,5 +822,7 @@ def plot_hyperparameter_scan(data, cluster_scan, ranges, n_cluster_trunc=10, **k
 	im = axes[3].imshow(size_unclustered, **kwargs_imshow)
 	plt.colorbar(im, ax=axes[3])
 	axes[3].set_title("rel. size of unclustered points")
+
+	fig.set_tight_layout(True)
 
 	return fig
