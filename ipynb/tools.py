@@ -157,38 +157,3 @@ def unpickle(filename):
 		The object in the pickle file, duh.
 	"""
 	return pkl.load(open(filename, 'rb'))
-
-
-def get_corner_axes(which='corner', fig=None):
-	"""
-	Return specific axes of a corner plot as a list (e.g. to perform some operation on them).
-
-	Parameters
-	----------
-	which
-		Which axes to return.
-		corner: lower corner, i.e. all 2D distributions
-		diag: diagonal, i.e. all 1D distributions
-	fig
-		Figure to use. If omitted, will use the current figure.
-
-	Returns
-	-------
-		A list of the requested axes objects.
-	"""
-	if fig is None:
-		axes = plt.gcf().axes
-	else:
-		axes = fig.axes
-
-	n_ax = int(np.floor(np.sqrt(len(axes))))
-	axes_grid = np.array(axes).reshape((n_ax, n_ax))
-
-	if which == 'corner':
-		toreturn = np.tril(axes_grid, k=-1)
-		toreturn = toreturn[toreturn != 0]
-	elif which == 'diag':
-		toreturn = axes_grid.diagonal()
-
-	return toreturn
-
