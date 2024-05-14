@@ -163,3 +163,8 @@ cython_debug/
 .vscode/
 ipynb/.temp/
 HDBScan_scan/
+
+# Data files (pickle, numpy, HDF5)
+*.pkl
+*.npy
+*.h5
