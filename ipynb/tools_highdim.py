@@ -556,7 +556,7 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 	n_cluster = cluster_labels.max() + 1
 	color_palette = sns.color_palette('bright', n_cluster)
 
-	# grey for unclustered data
+	# grey for unclustered data (corresponds to label -1 --> append at end of palette)
 	color_palette.append((0.5, 0.5, 0.5))
 
 	cluster_colors = [color_palette[x] for x in cluster_labels]
