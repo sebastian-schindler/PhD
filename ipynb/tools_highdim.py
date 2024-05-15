@@ -553,6 +553,20 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 	if cluster_probs is None:
 		cluster_probs = np.full(len(data), 1)
 
+	# re-order cluster labels from largest to smallest cluster
+
+	uniq_labels, uniq_counts = np.unique(cluster_labels, return_counts=True)
+	uniq_labels = uniq_labels[1:] # ignore unclustered (label -1)
+	uniq_counts = uniq_counts[1:]
+	uniq_indices = np.argsort(uniq_counts)
+	uniq_indices = uniq_indices[::-1] # reverse
+
+	cluster_labels_reordered = np.array(cluster_labels)
+	cluster_labels_reordered[cluster_labels_reordered > -1] = -2 # dummy value
+	for label_new, label_old in enumerate(uniq_labels[uniq_indices]):
+		cluster_labels_reordered[cluster_labels == label_old] = label_new
+	cluster_labels = cluster_labels_reordered
+
 	n_cluster = cluster_labels.max() + 1
 	color_palette = sns.color_palette('bright', n_cluster)
 
