@@ -556,8 +556,10 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 	# re-order cluster labels from largest to smallest cluster
 
 	uniq_labels, uniq_counts = np.unique(cluster_labels, return_counts=True)
-	uniq_labels = uniq_labels[1:] # ignore unclustered (label -1)
-	uniq_counts = uniq_counts[1:]
+	# ignore unclustered (label -1) if it exists
+	if uniq_labels[0] == -1:
+		uniq_labels = uniq_labels[1:]
+		uniq_counts = uniq_counts[1:]
 	uniq_indices = np.argsort(uniq_counts)
 	uniq_indices = uniq_indices[::-1] # reverse
 
