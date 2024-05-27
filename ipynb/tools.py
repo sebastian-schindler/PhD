@@ -157,3 +157,32 @@ def unpickle(filename):
 		The object in the pickle file, duh.
 	"""
 	return pkl.load(open(filename, 'rb'))
+
+
+from astroquery.simbad import Simbad
+def get_catalog_ID(name, catalog):
+	"""
+	Get the ID of an object by its common name as it appears in a certain catalog. If an error is raised by the Simbad query, make sure to delay subsequent calls to this function by some time.
+	
+	Parameters
+	----------
+	name
+		Common name of the object that Simbad understands.
+	catalog
+		Identifier of the catalog, e.g. 'WISE' for the AllWISE catalog, or '2RXS' for the second ROSAT all-sky survey.
+	
+	Returns
+	-------
+		The ID in the requested catalog of the requested object. If the object could not be found, or no (or no unique) catalog with the supplied catalog name could be found, returns None.
+	"""
+
+	IDs = Simbad.query_objectids(name)
+	if IDs is None:
+		return None
+	IDs = [x.decode() for x in IDs['ID'].data]
+
+	ID_candidates = [x[len(catalog)+1:] for x in IDs if x.startswith(catalog + " ")]
+
+	if len(ID_candidates) == 1:
+		return ID_candidates[0]
+	return None
