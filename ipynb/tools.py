@@ -2,16 +2,20 @@ from tools_matplotlib import *
 # from tools_highdim import *
 
 import numpy as np
+import pandas as pd
 
 import os.path as pth
 import warnings
 
 def no_nan(array, *args):
 	"""
-	Remove NaNs from an array.
+	Remove NaNs from an array, or pandas DataFrame.
 	For several arrays (of same shape): All positions that have a NaN in any of the arrays (i.e. the union of Nan positions) are removed from all arrays. A list of the arrays without NaNs is returned.
 	"""
-	
+
+	if type(array) is pd.DataFrame and len(args) == 0:  # if DataFrame, only one DataFrame makes sense
+		return array.dropna()
+
 	if array.ndim == 2:
 		print("Interpreting 2-dimensional array as multiple inputs instead of flattening array.")
 		return no_nan(*array.T).T
