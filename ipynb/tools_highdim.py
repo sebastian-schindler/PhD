@@ -597,6 +597,8 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 			plot_density = False, 
 			data_kwargs=dict(marker=',', alpha=.1)
 		)
+		if type(data) is pd.DataFrame:
+			kwargs_corner['labels'] = data.columns
 		kwargs_corner.update(kwargs)
 
 		if fig is None:
