@@ -503,7 +503,7 @@ def do_clustering_scan(data, scan_cluster_size, scan_samples=None, n_processes=o
 	return result
 
 
-def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, fig=None, **kwargs):
+def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, fig=None, ranges=None, **kwargs):
 	"""
 	Plot clustered data in various forms.
 
@@ -515,6 +515,8 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 		Type of plot to produce. '2d': detailled 2D plot with dendrogram; '3d': plotly 3D plot (3 dimensions only); 'corner': corner (triangle) plot; 'umap': UMAP embedding into two dimensions.
 	fig
 		matplotlib.figure object to re-use. If omitted, create new object with suitable figure size based on the number of dimensions.
+	ranges
+		Data range to limit all 2D (x- and y-axis) and 1D plots (x-axis) to. Either min and max values, or in case of only one value will use [-ranges, ranges] to limit axes.
 
 	If the data has been clustered previously, provide the following to color-code clusters:
 	cluster_labels
@@ -582,7 +584,7 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 	# dummies
 	def _loop(data_cluster, label):
 		return
-	def _finish():
+	def _finish(ranges):
 		return
 
 
@@ -635,8 +637,19 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 				# fig=plt.gcf(), 
 				**kwargs_);
 
-		def _finish():
-			[ax.autoscale(axis='y') for ax in get_corner_axes('diag', fig=fig)]
+		def _finish(ranges):
+			if ranges is None:
+				[ax.autoscale(axis='y') for ax in get_corner_axes('diag', fig=fig)]
+			else:
+				try:
+					iter(ranges)
+				except TypeError:  # not iterable
+					ranges = (-ranges, ranges)
+				for ax in get_corner_axes('corner'):
+					ax.set_xlim(ranges[0], ranges[1])
+					ax.set_ylim(ranges[0], ranges[1])
+				for ax in get_corner_axes('diag'):
+					ax.set_xlim(ranges[0], ranges[1])
 
 
 	if plot_type == '3d':
@@ -660,7 +673,7 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 			)
 			markers.append(marker)
 
-		def _finish():
+		def _finish(ranges):
 			layout = go.Layout(height=1000)
 			fig = go.Figure(data=markers, layout=layout)
 			fig.update_layout(scene_aspectmode='cube')
@@ -687,7 +700,7 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 			handle = Patch(color=color_palette[label], label="cluster %d" % label)
 			handles.append(handle)
 
-		def _finish():
+		def _finish(ranges):
 			plt.legend(handles=handles)
 
 
@@ -705,7 +718,7 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 
 		_loop(data_cluster, label)
 
-	_finish()
+	_finish(ranges)
 
 
 def get_corner_axes(which='all', fig=None):
