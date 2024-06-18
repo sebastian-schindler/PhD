@@ -353,10 +353,8 @@ class HDBScanClustering:
 			print("Found %d clusters" % n_cluster)
 		elif verbosity >= 2:
 			print("Found %d clusters:" % n_cluster)
-
-		for label in range(-1, n_cluster):
-			n_entries = np.sum(clusterer.labels_ == label)
-			if verbosity >= 2:
+			for label in range(-1, n_cluster):
+				n_entries = np.sum(clusterer.labels_ == label)
 				print(" cluster %d: %d entries (%.2f %%)" % (
 					label, 
 					n_entries, 
