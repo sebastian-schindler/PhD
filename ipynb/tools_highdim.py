@@ -329,6 +329,8 @@ class HDBScanClustering:
 		----------
 		verbosity
 			Verbosity level of the logging: 0 = no logging, 2 = max logging.
+		kwargs
+			Passed to `HDBSCAN`.
 		
 		Returns
 		-------
@@ -338,8 +340,6 @@ class HDBScanClustering:
 			Label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
 		cluster_probabilities
 			Probability of cluster association for all data points, array of length n_samples.
-		kwargs
-			Passed to `HDBSCAN`.
 		"""
 
 		# kwargs_hdbscan = dict(approx_min_span_tree=False)
