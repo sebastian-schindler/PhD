@@ -369,20 +369,21 @@ class HDBScanClustering:
 		
 		clusterer = hdbscan.HDBSCAN(**kwargs_hdbscan).fit(self.data)
 		n_cluster = clusterer.labels_.max() + 1
+		cluster_labels = self._reorder_clusters(clusterer.labels_)
 
 		if verbosity == 1:
 			print("Found %d clusters" % n_cluster)
 		elif verbosity >= 2:
 			print("Found %d clusters:" % n_cluster)
 			for label in range(-1, n_cluster):
-				n_entries = np.sum(clusterer.labels_ == label)
+				n_entries = np.sum(cluster_labels == label)
 				print(" cluster %d: %d entries (%.2f %%)" % (
 					label, 
 					n_entries, 
-					n_entries / len(clusterer.labels_) * 100
+					n_entries / len(cluster_labels) * 100
 				))
 
-		return self.data, self._reorder_clusters(clusterer.labels_), clusterer.probabilities_
+		return self.data, cluster_labels, clusterer.probabilities_
 
 
 	def scan_summary(self, return_range=True):
