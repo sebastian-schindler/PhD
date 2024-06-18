@@ -638,9 +638,8 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 				**kwargs_);
 
 		def _finish(ranges):
-			if ranges is None:
-				[ax.autoscale(axis='y') for ax in get_corner_axes('diag', fig=fig)]
-			else:
+			[ax.autoscale(axis='y') for ax in get_corner_axes('diag', fig=fig)]
+			if ranges is not None:
 				try:
 					iter(ranges)
 				except TypeError:  # not iterable
