@@ -253,6 +253,27 @@ class HDBScanClustering:
 			counts = np.insert(counts, 0, 0)
 		return counts
 
+	@classmethod
+	def _reorder_clusters(cls, cluster_labels):
+		"""Re-order cluster labels from largest to smallest cluster."""
+
+		uniq_labels, uniq_counts = np.unique(cluster_labels, return_counts=True)
+
+		# ignore unclustered (label -1) if it exists
+		if uniq_labels[0] == -1:
+			uniq_labels = uniq_labels[1:]
+			uniq_counts = uniq_counts[1:]
+
+		uniq_indices = np.argsort(uniq_counts)
+		uniq_indices = uniq_indices[::-1] # reverse
+
+		cluster_labels_reordered = np.array(cluster_labels)
+		cluster_labels_reordered[cluster_labels_reordered > -1] = -2 # dummy value
+		for label_new, label_old in enumerate(uniq_labels[uniq_indices]):
+			cluster_labels_reordered[cluster_labels == label_old] = label_new
+
+		return cluster_labels_reordered
+
 
 	def _scan(self, min_samples):
 
@@ -361,7 +382,7 @@ class HDBScanClustering:
 					n_entries / len(clusterer.labels_) * 100
 				))
 
-		return self.data, clusterer.labels_, clusterer.probabilities_
+		return self.data, self._reorder_clusters(clusterer.labels_), clusterer.probabilities_
 
 
 	def scan_summary(self, return_range=True):
