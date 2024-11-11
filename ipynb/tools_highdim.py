@@ -1,6 +1,7 @@
 # tools for high-dimensional explorative data analysis
 
 import numpy as np
+import matplotlib as pml
 import matplotlib.pyplot as plt
 import corner
 
@@ -500,6 +501,100 @@ class HDBScanClustering:
 					index = self.iter_samples.index(min_samples)
 					dataset[index,:] = cluster_labels
 
+	def plot_scan(self, cluster_scan, ranges, n_cluster_trunc=10, **kwargs):
+		"""
+		Plot the results of a HDBSCAN hyperparameter scan as a number of summary statistics.
+
+		Parameters
+		----------
+		cluster_scan (array_like)
+			The result of a summarized hyperparameter scan for clustering (i.e. only cluster counts, not cluster labels for all points).
+		ranges (tuple)
+			Min and max values of min_cluster_size and of min_samples. Alternatively, the hyperparameter scan values from which the min and max values are taken.
+		n_cluster_trunc (int)
+			Maximum number of clusters to display.
+		kwargs
+			Additional keyword arguments to be passed to imshow().
+
+		Returns
+		-------
+		The generated `matplotlib.figure.Figure` object containing the plots.
+		"""
+
+		kwargs_imshow = dict(
+			aspect = 'auto',
+			interpolation = 'none',
+			origin='lower',
+			cmap='Blues'
+		)
+
+		if len(ranges) == 2:  # scan values provided of both hyperparameters
+			iter_samples, iter_cluster_size = ranges
+			kwargs_imshow["extent"] = min(iter_cluster_size), max(iter_cluster_size), min(iter_samples), max(iter_samples)
+		else:  # already min and max values provided
+			kwargs_imshow["extent"] = ranges
+
+		kwargs_imshow["extent"] = np.array(kwargs_imshow["extent"])
+
+		# fence post problem
+		kwargs_imshow["extent"][1] += 1
+		kwargs_imshow["extent"][3] += 1
+
+		# center bins at the respective values
+		kwargs_imshow["extent"] = np.array(kwargs_imshow["extent"]) - 0.5
+
+		kwargs_imshow.update(kwargs)
+
+		# I trust awkward functions this far...
+		number_clusters = np.array(ak.count(cluster_scan, axis=2)) - 1  # do not count unclustered
+		number_clusters[number_clusters > n_cluster_trunc] = n_cluster_trunc + 1
+		cluster_scan_sorted = ak.sort(cluster_scan[:,:,1:], axis=2, ascending=False)
+
+		shape = number_clusters.shape
+		norm = len(self.data)
+
+		size_max_cluster = np.full(shape, 0, dtype=float)
+		size_secmax_cluster = np.full(shape, 0, dtype=float)
+
+		# ... but no further: long live expressive for loops
+		for i in range(shape[0]):
+			for j in range(shape[1]):
+				try:
+					size_max_cluster[i,j] = cluster_scan_sorted[i,j][0]
+					size_secmax_cluster[i,j] = cluster_scan_sorted[i,j][1]
+				except IndexError:
+					pass
+
+		size_max_cluster /= norm
+		size_secmax_cluster /= norm
+
+		size_unclustered = cluster_scan[:,:,0] / norm
+
+
+		fig, axes = plt.subplots(1, 4, sharey=True, figsize=(20, 5))
+		axes[0].set_ylabel("HDBSCAN min_samples")
+		[ax.set_xlabel("HDBSCAN min_cluster_size") for ax in axes]
+
+		im = axes[0].imshow(number_clusters, **kwargs_imshow)
+		plt.colorbar(im, ax=axes[0])
+		axes[0].set_title("number of clusters")
+
+		im = axes[1].imshow(size_max_cluster, **kwargs_imshow)
+		plt.colorbar(im, ax=axes[1])
+		axes[1].set_title("rel. size of largest cluster")
+		
+		im = axes[2].imshow(size_secmax_cluster, **kwargs_imshow)
+		plt.colorbar(im, ax=axes[2])
+		axes[2].set_title("rel. size of second-largest cluster")
+		
+		im = axes[3].imshow(size_unclustered, **kwargs_imshow)
+		plt.colorbar(im, ax=axes[3])
+		axes[3].set_title("rel. size of unclustered points")
+
+		fig.set_tight_layout(True)
+
+		return fig
+
 
 def do_clustering(data, verbosity=2, **kwargs):
 	"""Deprecated: Use `HDBScanClustering.cluster` instead."""
@@ -664,10 +759,10 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 					iter(ranges)
 				except TypeError:  # not iterable
 					ranges = (-ranges, ranges)
-				for ax in get_corner_axes('corner'):
+				for ax in get_corner_axes('corner', fig=fig):
 					ax.set_xlim(ranges[0], ranges[1])
 					ax.set_ylim(ranges[0], ranges[1])
-				for ax in get_corner_axes('diag'):
+				for ax in get_corner_axes('diag', fig=fig):
 					ax.set_xlim(ranges[0], ranges[1])
 
 
@@ -876,3 +971,98 @@ def plot_hyperparameter_scan(data, cluster_scan, ranges, n_cluster_trunc=10, **k
 	fig.set_tight_layout(True)
 
 	return fig
+
+
+def plot_pairgrid(df_data, df_mask=None, label=None, pairplot_kws={}, scatter_kws={}):
+	"""
+	Make a seaborn pairplot with two simultaneous plotting styles, optionally with highlighting points according to one or more masks.
+	
+	Parameters
+	----------
+	df_data
+		DataFrame with the data to plot.
+	df_mask
+		DataFrame or list of DataFrames where True values indicate points to highlight.
+	label
+		Label(s) of the highlighted points to be put into a legend.
+	pairplot_kws
+		Keyword arguments for `seaborn.pairplot`.
+	scatter_kws
+		Keyword arguments for `seaborn.scatterplot`.
+
+	Returns
+	-------
+	The seaborn PairGrid instance.
+	"""
+
+	# default colors can be changed in case of several masks
+	color_base = sns.color_palette()[0]
+	color_small_scatter = color_base
+
+	# Handle single mask input
+	if df_mask is not None:
+		if type(df_mask) is pd.DataFrame or type(df_mask) is pd.Series:
+		# if not pd.api.types.is_list_like(title):
+			df_mask = (df_mask,)
+			label = (label,)
+			highlight_colors = ("red",)
+		else:
+			if label is None:
+				label = [None] * len(df_mask)
+			highlight_colors = sns.color_palette(None, len(df_mask))
+			color_base = "lightgray"
+			color_small_scatter = "black"
+
+	# Set default keyword arguments
+	_pairplot_kws = dict(
+		markers='.', 
+		plot_kws=dict(s=10, color=color_small_scatter), 
+		diag_kws=dict(color=color_base)
+	)
+	_pairplot_kws.update(pairplot_kws)
+
+	# Define base scatter plot settings with explicit color and size
+	scatter_base_kws = dict(color=color_base, s=20, zorder=1)
+	scatter_base_kws.update(scatter_kws)
+
+	# Generate the base pairplot
+	pg = sns.pairplot(df_data, **_pairplot_kws)
+	pg.map_upper(sns.scatterplot, **scatter_base_kws)
+	pg.map_lower(sns.kdeplot, levels=4, color="black", linewidths=0.5)
+
+	if df_mask is not None:
+
+		# Highlighted scatter settings with red color and a higher z-order
+		scatter_hl_kws = dict(scatter_base_kws)
+		scatter_hl_kws.update(zorder=2)
+
+		# Track if legend has been added
+		legend_added = [False] * len(df_mask)
+
+		# Loop through axes for custom highlighting
+		for i, j in zip(*np.triu_indices_from(pg.axes, k=1)):
+			# Plot each mask with its corresponding color
+			for k, (mask, color, label) in enumerate(zip(df_mask, highlight_colors, label)):
+				scatter_hl_kws.update(color=color)
+
+				# Add legend only to the first subplot that has highlights
+				if not legend_added[k] and np.sum(df_mask) > 0:
+					scatter_hl_kws.update(label=label)
+					legend_added[k] = True
+
+				sns.scatterplot(
+					x=df_data[mask].iloc[:, j],
+					y=df_data[mask].iloc[:, i],
+					ax=pg.axes[i,j],
+					**scatter_hl_kws
+				)
+
+				scatter_hl_kws.pop("label", None)
+
+			try:
+				sns.move_legend(pg.axes[i,j], 'best', frameon=False, handletextpad=0, labelspacing=0, borderpad=0, borderaxespad=0, handlelength=mpl.rcParams['legend.handleheight'])
+			except ValueError as e:
+				if not "no legend attached" in e.args[0]:
+					raise e
+
+	return pg
