@@ -973,7 +973,7 @@ def plot_hyperparameter_scan(data, cluster_scan, ranges, n_cluster_trunc=10, **k
 	return fig
 
 
-def plot_pairgrid(df_data, df_mask=None, label=None, pairplot_kws={}, scatter_kws={}):
+def plot_pairgrid(df_data, df_mask=None, label=None, scatter_kws={}, **pairplot_kws):
 	"""
 	Make a seaborn pairplot with two simultaneous plotting styles, optionally with highlighting points according to one or more masks.
 	
@@ -985,10 +985,10 @@ def plot_pairgrid(df_data, df_mask=None, label=None, pairplot_kws={}, scatter_kw
 		DataFrame or list of DataFrames where True values indicate points to highlight.
 	label
 		Label(s) of the highlighted points to be put into a legend.
-	pairplot_kws
-		Keyword arguments for `seaborn.pairplot`.
 	scatter_kws
 		Keyword arguments for `seaborn.scatterplot`.
+	**pairplot_kws
+		Keyword arguments for `seaborn.pairplot`.
 
 	Returns
 	-------
@@ -1007,6 +1007,8 @@ def plot_pairgrid(df_data, df_mask=None, label=None, pairplot_kws={}, scatter_kw
 			if label is None:
 				label = (None,) * n_masks
 			highlight_color = sns.husl_palette(n_masks, s=1, l=0.6)
+			highlight_color = sns.color_palette("tab10", n_masks)
+			highlight_marker = [mpl.lines.Line2D.filled_markers[i // 10 + 1] for i in range(n_masks)]
 			color_base = "lightgray"
 			color_small_scatter = "black"
 		else:
@@ -1014,6 +1016,7 @@ def plot_pairgrid(df_data, df_mask=None, label=None, pairplot_kws={}, scatter_kw
 			df_mask = (df_mask,)
 			label = (label,)
 			highlight_color = ("red",)
+			highlight_marker = (0,)
 
 	# Set default keyword arguments
 	_pairplot_kws = dict(
@@ -1039,11 +1042,12 @@ def plot_pairgrid(df_data, df_mask=None, label=None, pairplot_kws={}, scatter_kw
 		scatter_hl_kws.update(zorder=100)
 
 		# Loop through masks for custom highlighting ...
-		for k, (_df_mask, _highlight_color, _label) in enumerate(zip(df_mask, highlight_color, label)):
+		for k, (_df_mask, _label, _highlight_color, _highlight_marker) in enumerate(zip(df_mask, label, highlight_color, highlight_marker)):
 
 			data = df_data[_df_mask]
-			scatter_hl_kws['color'] = _highlight_color
 			scatter_hl_kws['label'] = _label
+			scatter_hl_kws['color'] = _highlight_color
+			scatter_hl_kws['marker'] = _highlight_marker
 
 			# ... in each subplot
 			for i, j in zip(*np.triu_indices_from(pg.axes, k=1)):
