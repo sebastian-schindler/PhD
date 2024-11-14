@@ -999,19 +999,21 @@ def plot_pairgrid(df_data, df_mask=None, label=None, pairplot_kws={}, scatter_kw
 	color_base = sns.color_palette()[0]
 	color_small_scatter = color_base
 
-	# Handle single mask input
 	if df_mask is not None:
-		if type(df_mask) is pd.DataFrame or type(df_mask) is pd.Series:
-		# if not pd.api.types.is_list_like(title):
-			df_mask = (df_mask,)
-			label = (label,)
-			highlight_colors = ("red",)
-		else:
+
+		# Handle single mask input
+		if isinstance(df_mask, (list, tuple)):
+			n_masks = len(df_mask)
 			if label is None:
-				label = [None] * len(df_mask)
-			highlight_colors = sns.color_palette(None, len(df_mask))
+				label = (None,) * n_masks
+			highlight_color = sns.husl_palette(n_masks, s=1, l=0.6)
 			color_base = "lightgray"
 			color_small_scatter = "black"
+		else:
+			n_masks = 1
+			df_mask = (df_mask,)
+			label = (label,)
+			highlight_color = ("red",)
 
 	# Set default keyword arguments
 	_pairplot_kws = dict(
@@ -1032,37 +1034,41 @@ def plot_pairgrid(df_data, df_mask=None, label=None, pairplot_kws={}, scatter_kw
 
 	if df_mask is not None:
 
-		# Highlighted scatter settings with red color and a higher z-order
+		# Highlighted scatter settings with higher z-order
 		scatter_hl_kws = dict(scatter_base_kws)
-		scatter_hl_kws.update(zorder=2)
+		scatter_hl_kws.update(zorder=100)
 
-		# Track if legend has been added
-		legend_added = [False] * len(df_mask)
+		# Loop through masks for custom highlighting ...
+		for k, (_df_mask, _highlight_color, _label) in enumerate(zip(df_mask, highlight_color, label)):
 
-		# Loop through axes for custom highlighting
-		for i, j in zip(*np.triu_indices_from(pg.axes, k=1)):
-			# Plot each mask with its corresponding color
-			for k, (mask, color, label) in enumerate(zip(df_mask, highlight_colors, label)):
-				scatter_hl_kws.update(color=color)
+			data = df_data[_df_mask]
+			scatter_hl_kws['color'] = _highlight_color
+			scatter_hl_kws['label'] = _label
 
-				# Add legend only to the first subplot that has highlights
-				if not legend_added[k] and np.sum(df_mask) > 0:
-					scatter_hl_kws.update(label=label)
-					legend_added[k] = True
+			# ... in each subplot
+			for i, j in zip(*np.triu_indices_from(pg.axes, k=1)):
+				ax = pg.axes[i, j]
 
-				sns.scatterplot(
-					x=df_data[mask].iloc[:, j],
-					y=df_data[mask].iloc[:, i],
-					ax=pg.axes[i,j],
-					**scatter_hl_kws
-				)
+				# Check if there are points to plot
+				if data.iloc[:, [j, i]].notna().all(axis=1).any():
 
-				scatter_hl_kws.pop("label", None)
+					sns.scatterplot(
+						x=data.iloc[:, j],
+						y=data.iloc[:, i],
+						ax=ax,
+						**scatter_hl_kws
+					)
 
-			try:
-				sns.move_legend(pg.axes[i,j], 'best', frameon=False, handletextpad=0, labelspacing=0, borderpad=0, borderaxespad=0, handlelength=mpl.rcParams['legend.handleheight'])
-			except ValueError as e:
-				if not "no legend attached" in e.args[0]:
-					raise e
+					# Only add the label the first time for each mask
+					scatter_hl_kws['label'] = None
+
+				# Make legend more compact
+				if k + 1 == n_masks:  # last iteration over masks
+					try:
+						sns.move_legend(ax, 'best', 
+							frameon=False, handletextpad=0, labelspacing=0, borderpad=0, borderaxespad=0, handlelength=1) # mpl.rcParams['legend.handleheight']
+					except ValueError as e:
+						if "no legend attached" not in str(e):
+							raise e
 
 	return pg
