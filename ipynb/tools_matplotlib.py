@@ -1,7 +1,10 @@
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+import seaborn as sns
 
 
+plt.rcParams['figure.dpi'] = 300
 plt.rcParams['savefig.dpi'] = 150
 plt.rcParams['axes.grid'] = True
 
