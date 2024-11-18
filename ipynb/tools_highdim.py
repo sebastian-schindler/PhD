@@ -1016,7 +1016,7 @@ def plot_pairgrid(df_data, df_mask=None, label=None, scatter_kws={}, **pairplot_
 			df_mask = (df_mask,)
 			label = (label,)
 			highlight_color = ("red",)
-			highlight_marker = (0,)
+			highlight_marker = ('o',)
 
 	# Set default keyword arguments
 	_pairplot_kws = dict(
@@ -1033,13 +1033,14 @@ def plot_pairgrid(df_data, df_mask=None, label=None, scatter_kws={}, **pairplot_
 	# Generate the base pairplot
 	pg = sns.pairplot(df_data, **_pairplot_kws)
 	pg.map_upper(sns.scatterplot, **scatter_base_kws)
+	pg.map_upper(sns.kdeplot, levels=4, color="black", linewidths=0.5, zorder=100)
 	pg.map_lower(sns.kdeplot, levels=4, color="black", linewidths=0.5)
 
 	if df_mask is not None:
 
 		# Highlighted scatter settings with higher z-order
 		scatter_hl_kws = dict(scatter_base_kws)
-		scatter_hl_kws.update(zorder=100)
+		scatter_hl_kws.update(zorder=10)
 
 		# Loop through masks for custom highlighting ...
 		for k, (_df_mask, _label, _highlight_color, _highlight_marker) in enumerate(zip(df_mask, label, highlight_color, highlight_marker)):
