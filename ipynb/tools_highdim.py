@@ -626,18 +626,16 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 	----------
 	data
 		Data points in arbitrary dimensions, array of shape (n_samples, n_dims).
+	cluster_labels
+		If the data has been clustered previously, you can color-code clusters of data points. Provide the label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
+	cluster_probs
+		Probability of cluster association for all data points, array of length n_samples.
 	plot_type
 		Type of plot to produce. '2d': detailled 2D plot with dendrogram; '3d': plotly 3D plot (3 dimensions only); 'corner': corner (triangle) plot; 'umap': UMAP embedding into two dimensions.
 	fig
 		matplotlib.figure object to re-use. If omitted, create new object with suitable figure size based on the number of dimensions.
 	ranges
 		Data range to limit all 2D (x- and y-axis) and 1D plots (x-axis) to. Either min and max values, or in case of only one value will use [-ranges, ranges] to limit axes.
-
-	If the data has been clustered previously, provide the following to color-code clusters:
-	cluster_labels
-		Label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
-	cluster_probs
-		Probability of cluster association for all data points, array of length n_samples.
 	
 	kwargs will be passed to the final plot function.
 	"""
@@ -973,7 +971,7 @@ def plot_hyperparameter_scan(data, cluster_scan, ranges, n_cluster_trunc=10, **k
 	return fig
 
 
-def plot_pairgrid(df_data, df_mask=None, label=None, scatter_kws={}, **pairplot_kws):
+def plot_pairgrid(df_data, df_mask=None, label=None, color=None, marker=None, scatter_kws={}, **pairplot_kws):
 	"""
 	Make a seaborn pairplot with two simultaneous plotting styles, optionally with highlighting points according to one or more masks.
 	
@@ -1017,6 +1015,11 @@ def plot_pairgrid(df_data, df_mask=None, label=None, scatter_kws={}, **pairplot_
 			label = (label,)
 			highlight_color = ("red",)
 			highlight_marker = ('o',)
+
+		if color is not None:
+			highlight_color = color
+		if marker is not None:
+			highlight_marker = marker
 
 	# Set default keyword arguments
 	_pairplot_kws = dict(
