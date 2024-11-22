@@ -372,17 +372,18 @@ class HDBScanClustering:
 		n_cluster = clusterer.labels_.max() + 1
 		cluster_labels = self._reorder_clusters(clusterer.labels_)
 
-		if verbosity == 1:
-			print("Found %d clusters" % n_cluster)
-		elif verbosity >= 2:
-			print("Found %d clusters:" % n_cluster)
-			for label in range(-1, n_cluster):
-				n_entries = np.sum(cluster_labels == label)
-				print(" cluster %d: %d entries (%.2f %%)" % (
-					label, 
-					n_entries, 
-					n_entries / len(cluster_labels) * 100
-				))
+		def print_stats(label, cluster_name=None):
+			if cluster_name is None:
+				cluster_name = f"cluster {label + 1}"
+			n_entries = np.sum(cluster_labels == label)
+			fraction = n_entries / len(cluster_labels)
+			print(f" {cluster_name}: {n_entries} entries ({fraction * 100 :.2f} %)")
+
+		print("Found %d clusters" % n_cluster)
+		if verbosity >= 2:
+			print_stats(-1, "unclustered")
+			for label in range(0, n_cluster):
+				print_stats(label)
 
 		return self.data, cluster_labels, clusterer.probabilities_
 
