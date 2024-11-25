@@ -309,7 +309,9 @@ class HDBScanClustering:
 			Tuple (min, max, step) for scanning the min_cluster_size parameter of HDBSCAN. If step size is omitted, will be set to 1.
 		scan_samples
 			Tuple (min, max, step) for scanning the min_samples parameter of HDBSCAN. If step size is omitted, will be set to 1. If omitted entirely, will be set to cover the entire parameter space, i.e. (1, max(scan_cluster_size)).
+		
 		Alternatively, for both scan_* parameters, a (non-tuple) iterable can be provided that already contains the scan values.
+
 		n_processes
 			Number of parallel processes to use for the hyperparameter scan. Defaults to the available number of CPUs reduced by 2.
 		kwargs
