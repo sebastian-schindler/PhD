@@ -515,7 +515,7 @@ class HDBScanClustering:
 		ranges (tuple)
 			Min and max values of min_cluster_size and of min_samples. Alternatively, the hyperparameter scan values from which the min and max values are taken.
 		n_cluster_trunc (int)
-			Maximum number of clusters to display. Truncates numbers larger than this value and sets them to n_cluster_trunc + 1. Set to 0 to disable truncation.
+			Maximum number of clusters to display. Truncates numbers larger than this value. Set to 0 to disable truncation.
 		kwargs
 			Additional keyword arguments to be passed to imshow().
 
@@ -523,9 +523,6 @@ class HDBScanClustering:
 		-------
 		The generated `matplotlib.figure.Figure` object containing the plots.
 		"""
-
-		if n_cluster_trunc < 1:
-			n_cluster_trunc = np.inf
 
 		kwargs_imshow = dict(
 			aspect = 'auto',
@@ -553,7 +550,6 @@ class HDBScanClustering:
 
 		# I trust awkward functions this far...
 		number_clusters = np.array(ak.count(cluster_scan, axis=2)) - 1  # do not count unclustered
-		number_clusters[number_clusters > n_cluster_trunc] = n_cluster_trunc + 1
 		cluster_scan_sorted = ak.sort(cluster_scan[:,:,1:], axis=2, ascending=False)
 
 		shape = number_clusters.shape
@@ -576,26 +572,35 @@ class HDBScanClustering:
 
 		size_unclustered = cluster_scan[:,:,0] / norm
 
-
 		fig, axes = plt.subplots(1, 4, sharey=True, figsize=(20, 5))
 		axes[0].set_ylabel("HDBSCAN min_samples")
 		[ax.set_xlabel("HDBSCAN min_cluster_size") for ax in axes]
 
-		im = axes[0].imshow(number_clusters, **kwargs_imshow)
-		plt.colorbar(im, ax=axes[0])
-		axes[0].set_title("number of clusters")
+		def plot_panel(ax, data, title):
+			im = ax.imshow(data, **kwargs_imshow)
+			cbar = plt.colorbar(im, ax=ax)
+			ax.set_title(title)
+			ax.set_xlabel("HDBSCAN min_cluster_size")
+			return cbar
 
-		im = axes[1].imshow(size_max_cluster, **kwargs_imshow)
-		plt.colorbar(im, ax=axes[1])
-		axes[1].set_title("rel. size of largest cluster")
-		
-		im = axes[2].imshow(size_secmax_cluster, **kwargs_imshow)
-		plt.colorbar(im, ax=axes[2])
-		axes[2].set_title("rel. size of second-largest cluster")
-		
-		im = axes[3].imshow(size_unclustered, **kwargs_imshow)
-		plt.colorbar(im, ax=axes[3])
-		axes[3].set_title("rel. size of unclustered points")
+		# plots 2 - 4
+		plot_panel(axes[1], size_max_cluster, "fraction of largest cluster")
+		plot_panel(axes[2], size_secmax_cluster, "fraction of second-largest cluster")
+		plot_panel(axes[3], size_unclustered, "fraction of unclustered points")
+
+		# plot 1
+		if n_cluster_trunc > 0:
+			# custom colormap to highlight truncated values
+			boundaries = list(range(0, n_cluster_trunc + 1)) + [np.max(number_clusters)]
+			cmap = mpl.colors.ListedColormap(sns.color_palette(kwargs_imshow["cmap"], n_cluster_trunc) + ['red'])
+			norm = mpl.colors.BoundaryNorm(boundaries, cmap.N)
+			kwargs_imshow.update(cmap=cmap, norm=norm)
+		cbar = plot_panel(axes[0], number_clusters, "number of clusters")
+		ticks = cbar.get_ticks()
+		cbar.set_ticks(ticks, labels=
+					[ f"> {t}" for t in ticks[:-1] ] + 
+					[ str(ticks[-1]) ]
+		)
 
 		fig.set_tight_layout(True)
 
