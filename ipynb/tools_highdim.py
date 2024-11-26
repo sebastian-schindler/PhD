@@ -515,7 +515,7 @@ class HDBScanClustering:
 		ranges (tuple)
 			Min and max values of min_cluster_size and of min_samples. Alternatively, the hyperparameter scan values from which the min and max values are taken.
 		n_cluster_trunc (int)
-			Maximum number of clusters to display.
+			Maximum number of clusters to display. Truncates numbers larger than this value and sets them to n_cluster_trunc + 1. Set to 0 to disable truncation.
 		kwargs
 			Additional keyword arguments to be passed to imshow().
 
@@ -523,6 +523,9 @@ class HDBScanClustering:
 		-------
 		The generated `matplotlib.figure.Figure` object containing the plots.
 		"""
+
+		if n_cluster_trunc < 1:
+			n_cluster_trunc = np.inf
 
 		kwargs_imshow = dict(
 			aspect = 'auto',
