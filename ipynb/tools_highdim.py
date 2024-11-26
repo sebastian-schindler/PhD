@@ -578,10 +578,8 @@ class HDBScanClustering:
 
 		def plot_panel(ax, data, title):
 			im = ax.imshow(data, **kwargs_imshow)
-			cbar = plt.colorbar(im, ax=ax)
+			plt.colorbar(im, ax=ax)
 			ax.set_title(title)
-			ax.set_xlabel("HDBSCAN min_cluster_size")
-			return cbar
 
 		# plots 2 - 4
 		plot_panel(axes[1], size_max_cluster, "fraction of largest cluster")
@@ -590,17 +588,12 @@ class HDBScanClustering:
 
 		# plot 1
 		if n_cluster_trunc > 0:
-			# custom colormap to highlight truncated values
-			boundaries = list(range(0, n_cluster_trunc + 1)) + [np.max(number_clusters)]
-			cmap = mpl.colors.ListedColormap(sns.color_palette(kwargs_imshow["cmap"], n_cluster_trunc) + ['red'])
-			norm = mpl.colors.BoundaryNorm(boundaries, cmap.N)
-			kwargs_imshow.update(cmap=cmap, norm=norm)
-		cbar = plot_panel(axes[0], number_clusters, "number of clusters")
-		ticks = cbar.get_ticks()
-		cbar.set_ticks(ticks, labels=
-					[ f"> {t}" for t in ticks[:-1] ] + 
-					[ str(ticks[-1]) ]
-		)
+			cmap = kwargs_imshow['cmap']
+			if not isinstance(cmap, mpl.colors.Colormap):
+				cmap = mpl.colormaps[cmap]
+			cmap.set_over('red')
+			kwargs_imshow.update(cmap=cmap, vmax=n_cluster_trunc)
+		plot_panel(axes[0], number_clusters, "number of clusters")
 
 		fig.set_tight_layout(True)
 
