@@ -504,7 +504,7 @@ class HDBScanClustering:
 					index = self.iter_samples.index(min_samples)
 					dataset[index,:] = cluster_labels
 
-	def plot_scan(self, cluster_scan, ranges, n_cluster_trunc=10, **kwargs):
+	def plot_scan(self, cluster_scan, ranges, trunc_clusters=False, **kwargs):
 		"""
 		Plot the results of a HDBSCAN hyperparameter scan as a number of summary statistics.
 
@@ -514,8 +514,8 @@ class HDBScanClustering:
 			The result of a summarized hyperparameter scan for clustering (i.e. only cluster counts, not cluster labels for all points).
 		ranges (tuple)
 			Min and max values of min_cluster_size and of min_samples. Alternatively, the hyperparameter scan values from which the min and max values are taken.
-		n_cluster_trunc (int)
-			Maximum number of clusters to display. Truncates numbers larger than this value. Set to 0 to disable truncation.
+		trunc_clusters (int)
+			Maximum number of clusters to display. Truncates numbers larger than this value. False or 0 disables truncation.
 		kwargs
 			Additional keyword arguments to be passed to imshow().
 
@@ -587,12 +587,19 @@ class HDBScanClustering:
 		plot_panel(axes[3], size_unclustered, "fraction of unclustered points")
 
 		# plot 1
-		if n_cluster_trunc > 0:
-			cmap = kwargs_imshow['cmap']
-			if not isinstance(cmap, mpl.colors.Colormap):
-				cmap = mpl.colormaps[cmap]
-			cmap.set_over('red')
-			kwargs_imshow.update(cmap=cmap, vmax=n_cluster_trunc)
+		if trunc_clusters == 0:
+			trunc_clusters = np.max(number_clusters)
+
+		cmap = kwargs_imshow['cmap']
+		if not isinstance(cmap, mpl.colors.Colormap):
+			cmap = mpl.colormaps[cmap]
+		cmap.set_over('black')
+
+		kwargs_imshow.update(
+			cmap=cmap,
+			vmin=np.min(number_clusters),
+			vmax=trunc_clusters
+		)
 		plot_panel(axes[0], number_clusters, "number of clusters")
 
 		fig.set_tight_layout(True)
