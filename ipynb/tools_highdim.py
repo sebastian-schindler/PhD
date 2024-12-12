@@ -233,18 +233,40 @@ import awkward as ak
 from concurrent import futures
 import os
 import h5py
+import sklearn as sk
 class HDBScanClustering:
 	"""
 	Perform unsupervised clustering of data with HDBSCAN algorithm. Run a single execution with `.cluster()`, or prepare a hyperparameter scan with `.HyperparameterScan()`.
+
+	Parameters
+	----------
+	data
+		Pandas DataFrame or Numpy Array of shape (n_samples, n_features).
+	standardize
+		Metod to use for data standardization. HDBSCAN should be provided with standardized data for best results. Use 'standard' or 'robust' for the respective `sklearn.preprocessing` scaler, or provide an object that has the same signature. Leave empty to disable scaling.
 	"""
 
-	def __init__(self, data) -> None:
-		self.data = data
+	def __init__(self, data, standardize='robust') -> None:
 		self._scan_mode = None
 
 		self.hdbscan_args = dict(
 			approx_min_span_tree=False
 		)
+
+		if standardize is None or standardize == '':
+			self.data = data
+		else:
+			if standardize == 'robust':
+				standardize = sk.preprocessing.RobustScaler()
+			elif standardize == 'standard':
+				standardize = sk.preprocessing.StandardScaler()
+			
+			if len(data.shape) == 1:  # one-dimensional array
+				data = np.array(data).reshape(-1, 1)
+			self.data = standardize.fit(data).transform(data)
+			
+			if isinstance(data, pd.DataFrame):
+				self.data = pd.DataFrame(self.data, columns=data.columns)
 
 
 	@classmethod
@@ -533,19 +555,20 @@ class HDBScanClustering:
 
 		if len(ranges) == 2:  # scan values provided of both hyperparameters
 			iter_samples, iter_cluster_size = ranges
-			kwargs_imshow["extent"] = min(iter_cluster_size), max(iter_cluster_size), min(iter_samples), max(iter_samples)
+			extent = min(iter_cluster_size), max(iter_cluster_size), min(iter_samples), max(iter_samples)
 		else:  # already min and max values provided
-			kwargs_imshow["extent"] = ranges
+			extent = ranges
 
-		kwargs_imshow["extent"] = np.array(kwargs_imshow["extent"])
+		extent = np.array(extent)
 
 		# fence post problem
-		kwargs_imshow["extent"][1] += 1
-		kwargs_imshow["extent"][3] += 1
+		extent[1] += 1
+		extent[3] += 1
 
 		# center bins at the respective values
-		kwargs_imshow["extent"] = np.array(kwargs_imshow["extent"]) - 0.5
+		extent = np.array(extent) - 0.5
 
+		kwargs_imshow["extent"] = extent
 		kwargs_imshow.update(kwargs)
 
 		# I trust awkward functions this far...
@@ -579,6 +602,11 @@ class HDBScanClustering:
 		def plot_panel(ax, data, title):
 			im = ax.imshow(data, **kwargs_imshow)
 			plt.colorbar(im, ax=ax)
+
+			# diagonal line
+			xvals = np.linspace(extent[0], extent[1])
+			ax.plot(xvals, xvals, color='black', linewidth=0.5)
+
 			ax.set_title(title)
 
 		# plots 2 - 4
@@ -601,6 +629,22 @@ class HDBScanClustering:
 			vmax=trunc_clusters
 		)
 		plot_panel(axes[0], number_clusters, "number of clusters")
+
+		# write cluster numbers as text if plot not too large
+		if ((extent[1] - extent[0]) < 20) and ((extent[3] - extent[2]) < 20):
+
+			# revert bin centering for text plotting
+			extent = (extent + 0.5).astype(int)
+
+			for y, y_val in enumerate(range(extent[2], extent[3])):
+				for x, x_val in enumerate(range(extent[0], extent[1])):
+					z_val = number_clusters[y, x]
+					if z_val > trunc_clusters:
+						color = "white"
+					else:
+						color = "black"
+					fig.axes[0].text(x_val, y_val, str(z_val),
+							color=color, ha="center", va="center", fontsize=14)
 
 		fig.set_tight_layout(True)
 
