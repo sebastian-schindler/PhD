@@ -381,7 +381,7 @@ class HDBScanClustering:
 		Returns
 		-------
 		data
-			The same data object that was passed in for convenience.
+			The data object that is used for clustering. If scaling is applied (as is default), it is not the same as what is passed in; if scaling is disabled, it is the same.
 		cluster_labels
 			Label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
 		cluster_probabilities
