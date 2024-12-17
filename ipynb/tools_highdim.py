@@ -447,6 +447,47 @@ class HDBScanClustering:
 
 
 	@classmethod
+	def iterate_scan(cls, hdf5_file, dataset_name="HDBSCAN_scan", indices_enumerated=False):
+		"""
+		Iterate over a hyperparameter scan result stored in an HDF5 file.
+
+		This method yields cluster labels along with the corresponding cluster parameters
+		(`min_cluster_size` and `min_samples`) and their grid indices (`x` and `y`).
+
+		Parameters
+		----------
+		hdf5_file : str or pathlib.Path
+			Path to the HDF5 file containing the HDBSCAN scan results.
+		dataset_name : str, optional
+			Name of the dataset within the HDF5 file to read (default is "HDBSCAN_scan").
+		indices_enumerated : bool, optional
+			Whether to yield enumerated indices (0-based counting indices), or the real parameter values (default).
+
+		Yields
+		------
+		cluster_labels : numpy.ndarray
+			The array of cluster labels at the given grid position (hyperparameter combination).
+		indices : tuple (min_cluster_size, min_samples) or (x, y)
+			Either the hyperparameter values or the grid indices corresponding to the current hyperparameters as determined by indices_enumerated.
+		"""
+
+		with h5py.File(hdf5_file, 'r') as infile:
+
+			dataset = infile[dataset_name]
+			iter_samples = dataset.attrs["min_samples"]
+			iter_cluster_size = dataset.attrs["min_cluster_size"]
+
+			for y, min_samples in enumerate(iter_samples):
+				for x, min_cluster_size in enumerate(iter_cluster_size):
+					cluster_labels = dataset[y,x]
+					if indices_enumerated:
+						indices = (x, y)
+					else:
+						indices = (min_cluster_size, min_samples)
+					yield cluster_labels, indices
+
+
+	@classmethod
 	def summarize_scan(cls, input_file, dataset_name="HDBSCAN_scan", return_range=True):
 		"""
 		Summarize a full scan as if it were run with `.scan_summary` without running it again.
@@ -466,31 +507,19 @@ class HDBScanClustering:
 		If return_range is True, returns as second value a tuple containing the scanned values of min_samples and min_cluster_size.
 		"""
 
-		builder = ak.ArrayBuilder()
-
 		with h5py.File(input_file, 'r') as infile:
-
 			dataset = infile[dataset_name]
 			iter_samples = dataset.attrs["min_samples"]
 			iter_cluster_size = dataset.attrs["min_cluster_size"]
+		x_dim = len(iter_cluster_size)
+		y_dim = len(iter_samples)
 
-			for i, min_samples in enumerate(iter_samples):
-				counts_list = []
-				for j, min_cluster_size in enumerate(iter_cluster_size):
-					cluster_labels = dataset[i,j]
+		counts_grid = [[None for _ in range(y_dim)] for _ in range(x_dim)]  # nested list
 
-					try:
-						counts = cls._get_cluster_counts(cluster_labels)
-					except Exception as e:
-						print(type(cluster_labels))
-						print(cluster_labels.shape)
-						print(cluster_labels)
-						raise e
+		for cluster_labels, (x, y) in cls.iterate_scan(input_file, dataset_name=dataset_name, indices_enumerated=True):
+			counts_grid[x][y] = cls._get_cluster_counts(cluster_labels)
 
-					counts_list.append(counts)
-				builder.append(counts_list)
-
-		result = builder.snapshot()
+		result = ak.Array(counts_grid)
 
 		if return_range:
 			result = result, (iter_samples, iter_cluster_size)
