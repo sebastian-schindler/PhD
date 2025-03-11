@@ -221,6 +221,6 @@ def normalize_object_names(names):
 		names_normalized[names_normalized == ''] = names_failed
 
 	# replace N whitespace characters with 1 whitespace character
-	names_normalized.apply(lambda x: re.sub(r'\s+', ' ', x))
+	names_normalized = names_normalized.apply(lambda x: re.sub(r'\s+', ' ', x))
 
 	return names_normalized
