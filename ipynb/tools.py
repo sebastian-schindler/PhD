@@ -223,4 +223,7 @@ def normalize_object_names(names):
 	# replace N whitespace characters with 1 whitespace character
 	names_normalized = names_normalized.apply(lambda x: re.sub(r'\s+', ' ', x))
 
+	# remove the 'NAME' catalog identifier
+	names_normalized = names_normalized.apply(lambda x: x.replace('NAME ', '', 1))
+
 	return names_normalized
