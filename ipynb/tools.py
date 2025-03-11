@@ -193,7 +193,7 @@ def get_catalog_ID(name, catalog):
 
 
 import re
-def normalize_object_names(object_names):
+def normalize_object_names(names):
 	"""
 	Normalize astronomical object names using the Simbad database.
 
@@ -201,19 +201,26 @@ def normalize_object_names(object_names):
 	object_names (iterable): An iterable of object names to be normalized.
 
 	Returns:
-	pd.Series: A pandas Series containing the normalized object names, indexed by the original names.
+	pd.Series: A pandas Series containing the normalized object names (with same index as the input pandas Series).
 	"""
-	if isinstance(object_names, pd.Series):
-		original_index = object_names.index
-		object_names = object_names.tolist()
-	else:
-		original_index = range(len(object_names))
+	names = pd.Series(names, copy=True)
 	
-	result = Simbad.query_objects(object_names)
-	normalized_names = [re.sub(r'\s+', ' ', res) if res else name for res, name in zip(result['main_id'], object_names)]
-	
-	for i, res in enumerate(result['main_id']):
-		if not res:
-			print(f"Warning: SIMBAD query failed for {object_names[i]}; using original name.")
-	
-	return pd.Series(normalized_names, index=original_index)
+	result = Simbad.query_objects(names)
+	names_normalized = pd.Series(result['main_id'], index=names.index)
+
+	# Retry with some heuristics that SIMBAD doesn't handle itself: add a blank before...
+	names_modified = [re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', name) for name in names[names_normalized == '']]  # ... uppercase letters following lowercase letters (e.g. CygnusA -> Cygnus A)
+	names_modified = [re.sub(r'(?<=[a-zA-Z])(?=\d)', ' ', name) for name in names_modified]  # ... digits following letters (e.g. 3C273 -> 3C 273)
+	result_retry = Simbad.query_objects(names_modified)
+	names_normalized[names_normalized == ''] = result_retry['main_id']
+
+	names_failed = names[names_normalized == '']
+	if len(names_failed) > 0:
+		print(f"Warning: SIMBAD query failed for {len(names_failed)} objects; their original names will be used instead:")
+		[print(f"    {x}") for x in names_failed]
+		names_normalized[names_normalized == ''] = names_failed
+
+	# replace N whitespace characters with 1 whitespace character
+	names_normalized.apply(lambda x: re.sub(r'\s+', ' ', x))
+
+	return names_normalized
