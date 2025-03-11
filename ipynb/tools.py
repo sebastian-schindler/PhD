@@ -192,6 +192,7 @@ def get_catalog_ID(name, catalog):
 	return None
 
 
+import re
 def normalize_object_names(object_names):
 	"""
 	Normalize astronomical object names using the Simbad database.
@@ -209,10 +210,10 @@ def normalize_object_names(object_names):
 		original_index = range(len(object_names))
 	
 	result = Simbad.query_objects(object_names)
-	normalized_names = [res if res else name for res, name in zip(result['main_id'], object_names)]
+	normalized_names = [re.sub(r'\s+', ' ', res) if res else name for res, name in zip(result['main_id'], object_names)]
 	
 	for i, res in enumerate(result['main_id']):
 		if not res:
-			print(f"Warning: Query failed for {object_names[i]}; using original name.")
+			print(f"Warning: SIMBAD query failed for {object_names[i]}; using original name.")
 	
 	return pd.Series(normalized_names, index=original_index)
