@@ -190,3 +190,29 @@ def get_catalog_ID(name, catalog):
 	if len(ID_candidates) == 1:
 		return ID_candidates[0]
 	return None
+
+
+def normalize_object_names(object_names):
+	"""
+	Normalize astronomical object names using the Simbad database.
+
+	Parameters:
+	object_names (iterable): An iterable of object names to be normalized.
+
+	Returns:
+	pd.Series: A pandas Series containing the normalized object names, indexed by the original names.
+	"""
+	if isinstance(object_names, pd.Series):
+		original_index = object_names.index
+		object_names = object_names.tolist()
+	else:
+		original_index = range(len(object_names))
+	
+	result = Simbad.query_objects(object_names)
+	normalized_names = [res if res else name for res, name in zip(result['main_id'], object_names)]
+	
+	for i, res in enumerate(result['main_id']):
+		if not res:
+			print(f"Warning: Query failed for {object_names[i]}; using original name.")
+	
+	return pd.Series(normalized_names, index=original_index)
