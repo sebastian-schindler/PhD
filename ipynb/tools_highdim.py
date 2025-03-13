@@ -1156,9 +1156,11 @@ def plot_pairgrid(df_data, df_mask=None, label=None, color=None, marker=None, sc
 
 				# Make legend more compact
 				if k + 1 == n_masks:  # last iteration over masks
+					ax.set_zorder(1)  # ensures that overflowing legend is not covered
 					try:
-						sns.move_legend(ax, 'best', 
+						sns.move_legend(ax, 'best', fontsize='small', 
 							frameon=False, handletextpad=0, labelspacing=0, borderpad=0, borderaxespad=0, handlelength=1) # mpl.rcParams['legend.handleheight']
+						ax.get_legend().zorder = 100
 					except ValueError as e:
 						if "no legend attached" not in str(e):
 							raise e
