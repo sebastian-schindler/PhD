@@ -3,14 +3,34 @@ from tools_matplotlib import *
 
 import numpy as np
 import pandas as pd
-
 import os.path as pth
 import warnings
+import pickle as pkl
+import re
+from typing import Iterable
+
+import astropy.coordinates as coord
+import astropy.units as u
+from astroquery.simbad import Simbad
 
 def no_nan(array, *args):
 	"""
-	Remove NaNs from an array, or pandas DataFrame.
-	For several arrays (of same shape): All positions that have a NaN in any of the arrays (i.e. the union of Nan positions) are removed from all arrays. A list of the arrays without NaNs is returned.
+	Remove NaNs from an array or pandas DataFrame.
+	
+	For several arrays of same shape: All positions that have a NaN in any of the arrays 
+	(i.e. the union of NaN positions) are removed from all arrays.
+	
+	Parameters
+	----------
+	array : array-like or pd.DataFrame
+		Primary array or DataFrame to process.
+	*args : array-like
+		Additional arrays of same shape as array.
+	
+	Returns
+	-------
+	Cleaned array(s) with NaN values removed. For single input, returns the cleaned array.
+	For multiple inputs, returns list of cleaned arrays.
 	"""
 
 	if type(array) is pd.DataFrame and len(args) == 0:  # if DataFrame, only one DataFrame makes sense
@@ -27,7 +47,7 @@ def no_nan(array, *args):
 	
 	for i, arg in enumerate(args):
 		if arg.shape != mask.shape:
-			raise Exception("All arrays must have the same shape")
+			raise ValueError("All arrays must have the same shape")
 		try:
 			mask &= ~ np.isnan(arg)
 		except TypeError:
@@ -36,8 +56,19 @@ def no_nan(array, *args):
 	return np.array( [array[mask]] + [arg[mask] for arg in args] )
 
 
-def cache_file(url):
-	"""Cache a remote file locally and return local path to the cache copy."""
+def cache_file(url: str) -> str:
+	"""
+	Cache a remote file locally and return local path to the cache copy.
+	
+	Parameters
+	----------
+	url
+		URL of the remote file to cache.
+	
+	Returns
+	-------
+	Local absolute path to the cached file.
+	"""
 
 	from numpy.lib._datasource import DataSource
 
@@ -49,11 +80,26 @@ def cache_file(url):
 	return ds.abspath(url)
 
 
-import astropy.coordinates as coord
-import astropy.units as u
-def plt_skyplot(ra, dec, galactic=False, galaxy=False, figsize=[16,8], **kwargs):
-	"""Create skyplot in equatorial or galactic coordinates from arrays of RA and Dec values in degrees."""
-	
+def plt_skyplot(ra, dec, galactic: bool = False, galaxy: bool = False, figsize: tuple[float, float] = (16, 8), **kwargs):
+	"""
+	Create a sky plot in equatorial or galactic coordinates from arrays of RA and Dec values in degrees.
+
+	Parameters
+	----------
+	ra : array-like
+		Right Ascension values in degrees.
+	dec : array-like
+		Declination values in degrees.
+	galactic
+		If True, plot in galactic coordinates. If False, plot in equatorial coordinates.
+	galaxy
+		If True, overlay the galactic plane and galactic center on the plot.
+	figsize
+		Figure size as [width, height].
+	**kwargs
+		Additional keyword arguments passed to `plt.scatter`.
+	"""
+
 	def trafo_equ(ra):
 		ra = ra + 180*u.deg # type: ignore
 		ra = ra.wrap_at(180.*u.deg)
@@ -108,65 +154,57 @@ def plt_skyplot(ra, dec, galactic=False, galaxy=False, figsize=[16,8], **kwargs)
 		plt.plot(trafo_equ(center.ra).rad, center.dec.rad, '*k', markersize=5)
 
 
-import pickle as pkl
-
-def pickle(filename, *obj):
+def pickle(filename: str, *obj):
 	"""
-	Save an object to a pickle file. Dumb wrapper for dumb people (or those that can never remember the one-liner).
+	Save objects to a pickle file. Simple convenience wrapper.
 	
 	Parameters
 	----------
 	filename
-		A path where to save the pickle file. Recommended file extension is *.pkl.
+		Path where to save the pickle file. Recommended file extension is *.pkl.
 	*obj
-		Any python objects to save. If several are provided, will save a tuple of the individual objects.
+		Python objects to save. If several are provided, will save a tuple of the individual objects.
 	
 	Returns
 	-------
-		The same object as passed in (so that this wrapper is fully transparent).
+	The same object(s) as passed in (so that this wrapper is fully transparent).
 	"""
-	# PICKLED_IDENTIFIER = "#PICKLETUPLE"
 
-	# if not overwrite and pth.exists(filename):
-	# 	pickled = unpickle(filename)
-	# 	if type(pickled) == tuple and pickled[0] == PICKLED_IDENTIFIER:
-	# 		topickle = pickled + obj
-	# 	else:
-	# 		topickle = (PICKLED_IDENTIFIER, pickled, obj)
-	# else:
-	# 	topickle = obj
-
-	# pkl.dump(topickle, open(filename, 'wb'))
-
-	topickle = obj
-	if len(obj) == 1:
+	if len(obj) == 0:
+		raise ValueError("No object to pickle provided. Please provide at least one object to pickle.")
+	elif len(obj) == 1:
 		topickle = obj[0]
+	else:
+		topickle = obj
 
-	pkl.dump(topickle, open(filename, 'wb'))
+	with open(filename, 'wb') as f:
+		pkl.dump(topickle, f)
 
 	return obj
 
 
-def unpickle(filename):
+def unpickle(filename: str):
 	"""
 	Load a pickled object from a pickle file. Dumb wrapper for dumb people (or those that can never remember the one-liner).
 	
 	Parameters
 	----------
 	filename
-		A path to a pickle file.
+		Path to a pickle file.
 	
 	Returns
 	-------
-		The object in the pickle file, duh.
+	The object in the pickle file, duh.
 	"""
-	return pkl.load(open(filename, 'rb'))
+	with open(filename, 'rb') as f:
+		return pkl.load(f)
 
 
-from astroquery.simbad import Simbad
-def get_catalog_ID(name, catalog):
+def get_catalog_ID(name: str, catalog: str):
 	"""
-	Get the ID of an object by its common name as it appears in a certain catalog. If an error is raised by the Simbad query, make sure to delay subsequent calls to this function by some time.
+	Get the ID of an object by its common name as it appears in a certain catalog. 
+	
+	If an error is raised by the Simbad query, make sure to delay subsequent calls to this function by some time.
 	
 	Parameters
 	----------
@@ -177,7 +215,8 @@ def get_catalog_ID(name, catalog):
 	
 	Returns
 	-------
-		The ID in the requested catalog of the requested object. If the object could not be found, or no (or no unique) catalog with the supplied catalog name could be found, returns None.
+	The ID in the requested catalog of the requested object. If the object could not be found, 
+	or no (or no unique) catalog with the supplied catalog name could be found, returns None.
 	"""
 
 	IDs = Simbad.query_objectids(name)
@@ -192,16 +231,18 @@ def get_catalog_ID(name, catalog):
 	return None
 
 
-import re
-def normalize_object_names(names):
+def normalize_object_names(names: Iterable[str]) -> pd.Series:
 	"""
 	Normalize astronomical object names using the Simbad database.
 
-	Parameters:
-	object_names (iterable): An iterable of object names to be normalized.
+	Parameters
+	----------
+	names : iterable
+		Object names to be normalized.
 
-	Returns:
-	pd.Series: A pandas Series containing the normalized object names (with same index as the input pandas Series).
+	Returns
+	-------
+	pd.Series containing the normalized object names (with same index as the input pandas Series).
 	"""
 	names = pd.Series(names, copy=True)
 	
@@ -209,8 +250,11 @@ def normalize_object_names(names):
 	names_normalized = pd.Series(result['main_id'], index=names.index)
 
 	# Retry with some heuristics that SIMBAD doesn't handle itself: add a blank before...
-	names_modified = [re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', name) for name in names[names_normalized == '']]  # ... uppercase letters following lowercase letters (e.g. CygnusA -> Cygnus A)
-	names_modified = [re.sub(r'(?<=[a-zA-Z])(?=\d)', ' ', name) for name in names_modified]  # ... digits following letters (e.g. 3C273 -> 3C 273)
+	# ... uppercase letters following lowercase letters (e.g. CygnusA -> Cygnus A)
+	names_modified = [re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', name) for name in names[names_normalized == '']]
+	# ... digits following letters (e.g. 3C273 -> 3C 273)
+	names_modified = [re.sub(r'(?<=[a-zA-Z])(?=\d)', ' ', name) for name in names_modified]
+
 	result_retry = Simbad.query_objects(names_modified)
 	names_normalized[names_normalized == ''] = result_retry['main_id']
 
