@@ -7,7 +7,7 @@ name = "bastiastro"
 version = "0.1.0"
 description = "Basti's astronomy research environment bootstrap - tools and utilities for streamlined data analysis"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Sebastian Schindler", email = "sebastian.schindler@fau.de"}
 ]
 readme = "README.md"
 requires-python = ">=3.8"
@@ -28,9 +28,18 @@ dependencies = [
     "matplotlib",
     "astropy",
     "astroquery",
+    "seaborn",
+    "scikit-learn",
 ]
 
 [project.optional-dependencies]
+highdim = [
+    "hdbscan",
+    "corner",
+    "plotly", 
+    "awkward",
+    "h5py",
+]
 dev = [
     "pytest",
     "black",
