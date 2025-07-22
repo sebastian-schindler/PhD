@@ -24,7 +24,7 @@ classifiers = [
 
 dependencies = [
     "numpy",
-    "pandas", 
+    "pandas",
     "matplotlib",
     "astropy",
     "astroquery",
@@ -49,5 +49,5 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["tools*"]
-exclude = ["tests*"]
+include = ["bastiastro*"]
+exclude = ["tests*", "ipynb*"]
