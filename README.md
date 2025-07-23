@@ -16,7 +16,7 @@ The research employs machine learning approaches to define source selections tha
 PhD/
 ├── bastiastro/         # Main Python package
 ├── ipynb/              # Jupyter notebooks and analysis
-├── tools.py            # Backwards compatibility module
+│   └── tools.py        # Backwards compatibility for notebooks
 ├── README.md           # This file
 └── pyproject.toml      # Package configuration
 ```
@@ -37,14 +37,14 @@ from bastiastro import *
 This simple import provides a complete workspace setup: numpy, pandas, matplotlib, as well as a number custom tools.
 
 **📊 Astronomical Data Analysis**
-- Sky plotting and coordinate transformations
+- Sky plotting and coordinate transformations (`plt_skyplot`)
 - Multi-wavelength catalog analysis and cross-matching
-- High-dimensional clustering for source classification
+- High-dimensional clustering for source classification (`HDBScanClustering`)
 
 **🔬 Statistical Tools**
 - HDBSCAN clustering with hyperparameter optimization
-- Corner plots and multi-dimensional visualization
-- Data cleaning and preprocessing utilities
+- Corner plots and multi-dimensional visualization (`plot_highdim`)
+- Data cleaning and preprocessing utilities (`no_nan`, `pickle`/`unpickle`)
 
 ### Installation
 
@@ -57,7 +57,12 @@ cd PhD
 
 # Install the bastiastro package in development mode
 pip install -e .
+
+# Optional: Install with high-dimensional analysis tools
+pip install -e ".[highdim]"
 ```
+
+**Note**: Existing notebooks in `ipynb/` can continue using `from tools import *` for backwards compatibility.
 
 ### Usage
 
@@ -84,7 +89,13 @@ plt.title('AGN Sample Distribution')
 
 ### Development
 
-Professional Python package with modular design and useful documentation. See [CODING_STANDARDS.md](CODING_STANDARDS.md) for guidelines.
+Professional Python package with modular design and comprehensive documentation. See [CODING_STANDARDS.md](CODING_STANDARDS.md) for development guidelines.
+
+**Package Structure:**
+- `bastiastro.core` - Data utilities and preprocessing
+- `bastiastro.plotting` - Visualization and sky plotting
+- `bastiastro.astronomy` - Astronomical catalogs and object resolution
+- `bastiastro.highdim` - High-dimensional analysis and clustering
 
 ## Academic Context
 
