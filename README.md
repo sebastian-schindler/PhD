@@ -89,7 +89,7 @@ plt.title('AGN Sample Distribution')
 
 ### Development
 
-Professional Python package with modular design and comprehensive documentation. See [CODING_STANDARDS.md](CODING_STANDARDS.md) for development guidelines.
+Professional Python package with modular design and comprehensive documentation. See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 **Package Structure:**
 - `bastiastro.core` - Data utilities and preprocessing
