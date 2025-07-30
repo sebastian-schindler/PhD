@@ -81,38 +81,37 @@ def cache_file(url: str) -> str:
 	return ds.abspath(url)
 
 
-def pickle(filename: str, *obj) -> tuple:
+def pickle_save(filename: str, *objects) -> tuple:
 	"""
-	Save objects to a pickle file. Simple convenience wrapper.
+	Save objects to a pickle file. Simple wrapper for those who prefer explicit function names.
 	
 	Parameters
 	----------
 	filename
 		Path where to save the pickle file. Recommended file extension is *.pkl.
-	*obj
-		Python objects to save. If several are provided, will save a tuple of the individual objects.
+	*objects
+		Python objects to save. If several are provided, will save a tuple of the objects.
 	
 	Returns
 	-------
-	The same object(s) as passed in (so that this wrapper is fully transparent).
+	The same object(s) as passed in for method chaining.
 	"""
-
-	if len(obj) == 0:
+	if len(objects) == 0:
 		raise ValueError("No object to pickle provided. Please provide at least one object to pickle.")
-	elif len(obj) == 1:
-		topickle = obj[0]
+	elif len(objects) == 1:
+		to_pickle = objects[0]
 	else:
-		topickle = obj
+		to_pickle = objects
 
 	with open(filename, 'wb') as f:
-		pkl.dump(topickle, f)
+		pkl.dump(to_pickle, f)
 
-	return obj
+	return objects
 
 
-def unpickle(filename: str) -> Any:
+def pickle_load(filename: str) -> Any:
 	"""
-	Load a pickled object from a pickle file. Dumb wrapper for dumb people (or those that can never remember the one-liner).
+	Load a pickled object from a pickle file. Simple convenience wrapper.
 	
 	Parameters
 	----------
@@ -121,7 +120,20 @@ def unpickle(filename: str) -> Any:
 	
 	Returns
 	-------
-	The object in the pickle file, duh.
+	The object from the pickle file.
 	"""
 	with open(filename, 'rb') as f:
 		return pkl.load(f)
+
+
+# Backward compatibility aliases
+def pickle(filename: str, *objects) -> tuple:
+	"""Deprecated: Use pickle_save instead."""
+	warn("Function 'pickle' is deprecated. Use 'pickle_save' instead.", DeprecationWarning, stacklevel=2)
+	return pickle_save(filename, *objects)
+
+
+def unpickle(filename: str) -> Any:
+	"""Deprecated: Use pickle_load instead."""
+	warn("Function 'unpickle' is deprecated. Use 'pickle_load' instead.", DeprecationWarning, stacklevel=2)
+	return pickle_load(filename)

@@ -11,6 +11,44 @@ import astropy.units as u
 plt.rcParams['savefig.dpi'] = 150
 plt.rcParams['axes.grid'] = True
 
+
+def _transform_equatorial_coords(ra: Quantity) -> Quantity:
+	"""Transform equatorial coordinates for Mollweide projection."""
+	ra = ra + 180*u.deg # type: ignore
+	ra = ra.wrap_at(180.*u.deg)
+	ra = -ra
+	return ra
+
+
+def _transform_galactic_coords(longitude: Quantity) -> Quantity:
+	"""Transform galactic coordinates for Mollweide projection."""
+	longitude = longitude.wrap_at(180*u.deg)
+	longitude = -longitude
+	return longitude
+
+
+def _compute_skyplot_ticks(left: float, right: float) -> tuple[np.ndarray, list[str]]:
+	"""Compute x-axis tick marks and labels for sky plots.
+	
+	Returns
+	-------
+	tuple
+		(tick_positions, tick_labels) where tick_positions are in radians
+		and tick_labels are formatted degree strings.
+	"""
+	# Create 30-degree step ticks, excluding bounds
+	xticks = np.linspace(-180, 180, 13)
+	xticks = np.deg2rad(xticks)
+	xticks = xticks[1:-1]
+	
+	xticklabels = []
+	for number in np.linspace(left, right, 13):
+		xticklabels.append(f"{number:d}\N{DEGREE SIGN}")
+	xticklabels = xticklabels[1:-1]
+	
+	return xticks, xticklabels
+
+
 def hist(*args: Any, **kwargs: Any) -> tuple[Any, Any, Any]:
 	"""Plot a 2D histogram with sensible default settings and conveniences."""
 
@@ -93,57 +131,35 @@ def plt_skyplot(
 	**kwargs
 		Additional keyword arguments passed to `plt.scatter`.
 	"""
-
-	def trafo_equ(ra):
-		ra = ra + 180*u.deg # type: ignore
-		ra = ra.wrap_at(180.*u.deg)
-		ra = -ra
-		return ra
-	def trafo_gal(l):
-		l = l.wrap_at(180*u.deg)
-		l = -l
-		return l
-	
-	plt.figure(figsize=figsize)
-	plt.subplot(projection='mollweide')
+	fig = plt.figure(figsize=figsize)
+	ax = plt.subplot(projection='mollweide')
 	plt.grid()
-	
-	def set_xticks(left, right):
-		
-		xticks = np.linspace(-180, 180, 13) # 30 deg steps incl. 0 and bounds
-		xticks = np.deg2rad(xticks)
-		xticks = xticks[1:-1] # exclude bounds
-		
-		xticklabels = []
-		for number in np.linspace(left, right, 13):
-			xticklabels.append(u"%d \N{DEGREE SIGN}" % number)
-		xticklabels = xticklabels[1:-1]
-		
-		plt.xticks(xticks, xticklabels)
-	
+
 	coords = coord.SkyCoord(ra*u.deg, dec*u.deg)
 	if galactic:
 		coords = coords.transform_to('galactic')
-		coord_x = trafo_gal(coords.l)
+		coord_x = _transform_galactic_coords(coords.l)
 		coord_y = coords.b
-		set_xticks(180, -180)
+		xticks, xticklabels = _compute_skyplot_ticks(180, -180)
+		plt.xticks(xticks, xticklabels)
 		plt.text(0.9, 0.1, "Galactic", transform=plt.figure(1).axes[0].transAxes)
  
 	else:
-		coord_x = trafo_equ(coords.ra)
+		coord_x = _transform_equatorial_coords(coords.ra)
 		coord_y = coords.dec
-		set_xticks(360, 0)
+		xticks, xticklabels = _compute_skyplot_ticks(360, 0)
+		plt.xticks(xticks, xticklabels)
 		plt.text(0.9, 0.1, "Equatorial", transform=plt.figure(1).axes[0].transAxes)
 
 	plt.scatter(coord_x.rad, coord_y.rad, **kwargs)
 	
 	if galaxy:
-		
 		plane = coord.SkyCoord(frame='galactic', l=np.linspace(0, 360, 100)*u.deg, b=0*u.deg)
 		plane = plane.transform_to('icrs')
-		plt.plot(trafo_equ(plane.ra).rad, plane.dec.rad, 'black', linewidth=.5)
+		plt.plot(_transform_equatorial_coords(plane.ra).rad, plane.dec.rad, 'black', linewidth=.5)
 
 		center = coord.SkyCoord(frame='galactic', l=0*u.deg, b=0*u.deg)
 		center = center.transform_to('icrs')
-		plt.plot(trafo_equ(center.ra).rad, center.dec.rad, '*k', markersize=5)
-
+		plt.plot(_transform_equatorial_coords(center.ra).rad, center.dec.rad, '*k', markersize=5)
+	
+	return fig, ax
