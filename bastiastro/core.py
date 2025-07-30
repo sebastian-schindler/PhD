@@ -1,9 +1,21 @@
-import numpy as np
-import pandas as pd
-import os.path as pth
+"""
+Core utilities for data processing and file operations.
+
+This module provides fundamental utilities for the bastiastro package including
+data cleaning functions, file caching, and pickle operations for saving/loading
+Python objects.
+"""
+
+# Python built-in imports
 import warnings
+import os.path as pth
 import pickle as pkl
 
+# Third-party imports
+import numpy as np
+import pandas as pd
+
+# Type checking imports
 from typing import Any, Union
 from numpy.typing import ArrayLike
 
@@ -18,12 +30,13 @@ def no_nan(*arrays: Union[ArrayLike, pd.DataFrame]) -> Union[ArrayLike, pd.DataF
 	Parameters
 	----------
 	*arrays
-		One or more arrays or a single DataFrame to process. All arrays must have the same shape.
+		One or more arrays or DataFrames to process. All arrays must have the same shape.
 	
 	Returns
 	-------
-	For single input, returns the cleaned array or DataFrame. For multiple inputs, 
-	returns list of cleaned arrays.
+	cleaned_data
+		For single input, returns the cleaned array or DataFrame. For multiple inputs, 
+		returns list of cleaned arrays.
 	"""
 	if len(arrays) == 0:
 		raise ValueError("At least one array must be provided")
@@ -70,7 +83,6 @@ def cache_file(url: str) -> str:
 	-------
 	Local absolute path to the cached file.
 	"""
-
 	from numpy.lib._datasource import DataSource
 
 	cache_dir = pth.join(pth.curdir, ".temp")
@@ -94,7 +106,8 @@ def pickle_save(filename: str, *objects) -> tuple:
 	
 	Returns
 	-------
-	The same object(s) as passed in for method chaining.
+	saved_objects
+		The same object(s) as passed in for method chaining.
 	"""
 	if len(objects) == 0:
 		raise ValueError("No object to pickle provided. Please provide at least one object to pickle.")
@@ -120,7 +133,8 @@ def pickle_load(filename: str) -> Any:
 	
 	Returns
 	-------
-	The object from the pickle file.
+	loaded_object
+		The object from the pickle file.
 	"""
 	with open(filename, 'rb') as f:
 		return pkl.load(f)
@@ -129,11 +143,11 @@ def pickle_load(filename: str) -> Any:
 # Backward compatibility aliases
 def pickle(filename: str, *objects) -> tuple:
 	"""Deprecated: Use pickle_save instead."""
-	warn("Function 'pickle' is deprecated. Use 'pickle_save' instead.", DeprecationWarning, stacklevel=2)
+	warnings.warn("Function 'pickle' is deprecated. Use 'pickle_save' instead.", DeprecationWarning, stacklevel=2)
 	return pickle_save(filename, *objects)
 
 
 def unpickle(filename: str) -> Any:
 	"""Deprecated: Use pickle_load instead."""
-	warn("Function 'unpickle' is deprecated. Use 'pickle_load' instead.", DeprecationWarning, stacklevel=2)
+	warnings.warn("Function 'unpickle' is deprecated. Use 'pickle_load' instead.", DeprecationWarning, stacklevel=2)
 	return pickle_load(filename)

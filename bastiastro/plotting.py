@@ -1,3 +1,11 @@
+"""
+Astronomy plotting utilities and visualizations.
+
+This module provides specialized plotting functions for astronomical data,
+including sky plots, interactive legends, and enhanced histograms.
+"""
+
+# Third-party imports
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -5,6 +13,11 @@ import seaborn as sns
 import numpy as np
 import astropy.coordinates as coord
 import astropy.units as u
+
+# Type checking imports
+from typing import Any
+from numpy.typing import ArrayLike
+from astropy.units.quantity import Quantity
 
 
 # plt.rcParams['figure.dpi'] = 300
@@ -50,8 +63,25 @@ def _compute_skyplot_ticks(left: float, right: float) -> tuple[np.ndarray, list[
 
 
 def hist(*args: Any, **kwargs: Any) -> tuple[Any, Any, Any]:
-	"""Plot a 2D histogram with sensible default settings and conveniences."""
-
+	"""
+	Plot a histogram with sensible default settings.
+	
+	This function is a wrapper around `matplotlib.pyplot.hist` that provides
+	default values for commonly used parameters.
+	
+	Parameters
+	----------
+	*args
+		Positional arguments passed to `plt.hist`.
+	**kwargs
+		Keyword arguments passed to `plt.hist`. Default values are provided
+		for `bins` (100) and `histtype` ('step').
+	
+	Returns
+	-------
+	histogram_data
+		Return value from `plt.hist` containing (n, bins, patches).
+	"""
 	kwargs_hist = dict(
 		bins = 100, 
 		histtype = 'step'
@@ -65,15 +95,18 @@ def plt_legend_toggleable(*args: Any, pickradius: float = 7.) -> None:
 	"""
 	Add a legend that allows clicking on entries to toggle their visibility.
 	
+	This function creates an interactive legend where clicking on legend entries
+	toggles the visibility of the corresponding plot elements. Invisible elements
+	appear with reduced alpha in the legend.
+	
 	Parameters
 	----------
-	args
-		Passed to `plt.legend()`.
+	*args
+		Arguments passed to `plt.legend()`.
 	pickradius
-		Area in points around the legend artist that trigger a click event. Values above 10 are discouraged, because then typically the click areas start to overlap.
-	
+		Area in points around the legend artist that triggers a click event.
+		Values above 10 are discouraged as click areas may overlap.
 	"""
-
 	leg = plt.legend(*args)
 
 	ax_objs, labels = plt.gca().get_legend_handles_labels()  # plot object and corresponding labels that are represented in the legend
@@ -114,27 +147,33 @@ def plt_skyplot(
 	**kwargs
 ) -> tuple[plt.Figure, plt.Axes]:
 	"""
-	Create a sky plot in equatorial or galactic coordinates from arrays of RA and Dec values in degrees.
+	Create a sky plot in equatorial or galactic coordinates.
+
+	This function creates a Mollweide projection sky plot from arrays of Right Ascension (RA) and Declination (Dec) values. The plot can be displayed in equatorial or galactic coordinates, with optional galactic plane and center overlays.
 
 	Parameters
 	----------
-	ra : array-like
+	ra
 		Right Ascension values in degrees.
-	dec : array-like
+	dec
 		Declination values in degrees.
 	galactic
 		If True, plot in galactic coordinates. If False, plot in equatorial coordinates.
 	galaxy
 		If True, overlay the galactic plane and galactic center on the plot.
 	figsize
-		Figure size as [width, height].
+		Figure size as (width, height).
 	**kwargs
 		Additional keyword arguments passed to `plt.scatter`.
+		
+	Returns
+	-------
+	tuple
+		(figure, axes) objects for further customization.
 	"""
 	fig = plt.figure(figsize=figsize)
 	ax = plt.subplot(projection='mollweide')
 	plt.grid()
-
 	coords = coord.SkyCoord(ra*u.deg, dec*u.deg)
 	if galactic:
 		coords = coords.transform_to('galactic')
@@ -161,5 +200,5 @@ def plt_skyplot(
 		center = coord.SkyCoord(frame='galactic', l=0*u.deg, b=0*u.deg)
 		center = center.transform_to('icrs')
 		plt.plot(_transform_equatorial_coords(center.ra).rad, center.dec.rad, '*k', markersize=5)
-	
+
 	return fig, ax

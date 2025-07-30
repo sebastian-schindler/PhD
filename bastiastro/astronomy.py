@@ -1,7 +1,19 @@
+"""
+Astronomy-specific utilities and data retrieval functions.
+
+This module provides functions for working with astronomical catalogs and 
+databases, including SIMBAD queries for object identification and name 
+normalization.
+"""
+
+# Python built-in imports
 import re
+
+# Third-party imports
 import pandas as pd
 from astroquery.simbad import Simbad
 
+# Type checking imports
 from typing import Optional, Iterable
 
 
@@ -20,10 +32,10 @@ def get_catalog_ID(name: str, catalog: str) -> Optional[str]:
 	
 	Returns
 	-------
-	The ID in the requested catalog of the requested object. If the object could not be found, 
-	or no (or no unique) catalog with the supplied catalog name could be found, returns None.
+	catalog_id
+		The ID in the requested catalog of the requested object. If the object could not be found, 
+		or no (or no unique) catalog with the supplied catalog name could be found, returns None.
 	"""
-
 	IDs = Simbad.query_objectids(name)
 	if IDs is None:
 		return None
@@ -42,12 +54,13 @@ def normalize_object_names(names: Iterable[str]) -> pd.Series:
 
 	Parameters
 	----------
-	names : iterable
+	names
 		Object names to be normalized.
 
 	Returns
 	-------
-	pd.Series containing the normalized object names (with same index as the input pandas Series).
+	normalized_names
+		Series containing the normalized object names with same index as the input Series.
 	"""
 	names = pd.Series(names, copy=True)
 	

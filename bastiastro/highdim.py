@@ -1,5 +1,15 @@
-# tools for high-dimensional explorative data analysis
+"""
+High-dimensional data analysis and clustering tools.
 
+This module provides tools for exploratory data analysis in high-dimensional
+spaces, including HDBSCAN clustering, visualization functions, and utilities
+for astronomical data mining and parameter space exploration.
+"""
+
+# Python built-in imports
+import warnings
+
+# Third-party imports
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -7,11 +17,11 @@ import corner
 
 from tools import *
 
+# Type checking imports
 from typing import Any, Union, Optional, Iterable, Iterator
 from numpy.typing import ArrayLike
 
 
-import warnings
 warnings.filterwarnings("ignore", module="corner")
 
 
@@ -24,8 +34,40 @@ def plot_with_marginals(
 	SOI: Optional[dict] = None, 
 	names_1RXS: Optional[ArrayLike] = None
 ) -> tuple[mpl.axes.Axes, callable, callable, callable]:
-	"""2D plot (scatter plot or color histogram) with 1D histograms of the marginals at the sides. Adapted from: https://matplotlib.org/stable/gallery/lines_bars_and_markers/scatter_hist.html"""
-	 
+	"""
+	Create a 2D plot with 1D histograms of marginals on the sides.
+	
+	This function creates a scatter plot or 2D histogram with marginal 
+	histograms along the x and y axes. Adapted from matplotlib gallery.
+	
+	Parameters
+	----------
+	x
+		X-axis data values.
+	y
+		Y-axis data values.
+	figsize
+		Figure size as (width, height).
+	hist
+		If True, create 2D histogram. If False, create scatter plot.
+	log
+		If True, use logarithmic scaling for histograms and color normalization.
+	SOI
+		Sources of interest dictionary mapping names to identifiers.
+	names_1RXS
+		Array of source names corresponding to x, y data points.
+	
+	Returns
+	-------
+	main_axis
+		The main plotting axis for the 2D scatter plot or histogram.
+	plot_function
+		Function to update the main plot with new keyword arguments.
+	hist_x_function
+		Function to update the x-axis marginal histogram.
+	hist_y_function
+		Function to update the y-axis marginal histogram.
+	"""
 	fig = plt.figure(figsize=figsize)
 	gs = fig.add_gridspec(2, 2,  width_ratios=(4, 1), height_ratios=(1, 4), left=0.1, right=0.9, bottom=0.1, top=0.9, wspace=0.05, hspace=0.05)
 	ax = fig.add_subplot(gs[1, 0])
@@ -95,7 +137,34 @@ def do_cluster(
 	plot_dims: tuple[int, int] = (0, 1), 
 	**kwargs
 ) -> 'hdbscan.HDBSCAN':
+	"""
+	Perform HDBSCAN clustering and create comprehensive visualization.
 	
+	This function performs HDBSCAN clustering on the provided data and creates
+	a multi-panel visualization showing the clustering results, including the
+	condensed tree and cluster projections.
+	
+	Parameters
+	----------
+	data
+		Input data array of shape (n_features, n_samples) or (n_samples, n_features).
+	plot_kwargs
+		Additional keyword arguments for scatter plots.
+	plot_dims
+		Tuple specifying which dimensions to use for 2D plotting.
+	**kwargs
+		Additional keyword arguments passed to HDBSCAN constructor.
+	
+	Returns
+	-------
+	clusterer
+		Fitted HDBSCAN clusterer object.
+		
+	Raises
+	------
+	ImportError
+		If hdbscan package is not installed.
+	"""
 	try:
 		data.shape
 	except AttributeError:
@@ -159,6 +228,18 @@ def do_cluster(
 	return clusterer
 
 def plot_tree() -> None:
+	"""
+	Plot the condensed tree from the most recent HDBSCAN clustering.
+	
+	This function displays the condensed tree visualization from the last
+	HDBSCAN clustering performed with `do_cluster`. Must be called after
+	`do_cluster` has been executed.
+	
+	Raises
+	------
+	RuntimeError
+		If no HDBSCAN results are available (need to run `do_cluster` first).
+	"""
 	global hdbscan_results
 	clusterer, color_palette = hdbscan_results
 	
@@ -176,7 +257,39 @@ def cluster_corner(
 	plot_3d: bool = False, 
 	**kwargs
 ) -> Union[mpl.figure.Figure, 'plotly.graph_objects.Figure']:
-
+	"""
+	Create corner plot with HDBSCAN clustering visualization.
+	
+	This function performs HDBSCAN clustering on the input data and visualizes
+	the results as either a corner plot (2D projections) or a 3D scatter plot.
+	
+	Parameters
+	----------
+	data
+		Input data array of shape (n_samples, n_features).
+	labels
+		Labels for the data dimensions/features.
+	fig
+		Existing figure to plot on. If None, creates a new figure.
+	plot_kwargs
+		Additional keyword arguments for plotting functions.
+	corner_kwargs
+		Additional keyword arguments for the corner plot.
+	plot_3d
+		If True, create 3D scatter plot instead of corner plot.
+	**kwargs
+		Additional keyword arguments passed to HDBSCAN constructor.
+	
+	Returns
+	-------
+	figure
+		Figure object (matplotlib Figure or plotly Figure depending on plot_3d).
+		
+	Raises
+	------
+	ImportError
+		If required packages (hdbscan, corner, or plotly) are not installed.
+	"""
 	corner_kwargs_ = dict(bins=100, range=np.array([np.nanmin(data, axis=0), np.nanmax(data, axis=0)]).T, labels=labels, plot_contours=False, plot_density=False)
 	plot_kwargs_ = dict(marker=',', alpha=0.1)
 	
@@ -261,14 +374,22 @@ import h5py
 import sklearn as sk
 class HDBScanClustering:
 	"""
-	Perform unsupervised clustering of data with HDBSCAN algorithm. Run a single execution with `.cluster()`, or prepare a hyperparameter scan with `.HyperparameterScan()`.
-
+	Perform unsupervised clustering with HDBSCAN algorithm.
+	
+	This class provides a comprehensive interface for HDBSCAN clustering with
+	automatic data standardization, hyperparameter scanning capabilities, and
+	result visualization. Can run single clustering executions or parameter scans.
+	
 	Parameters
 	----------
 	data
-		Pandas DataFrame or Numpy Array of shape (n_samples, n_features).
+		Input data as Pandas DataFrame, NumPy array, or any array-like structure 
+		of shape (n_samples, n_features).
 	standardize
-		Metod to use for data standardization. HDBSCAN should be provided with standardized data for best results. Use 'standard' or 'robust' for the respective `sklearn.preprocessing` scaler, or provide an object that has the same signature. Leave empty to disable scaling.
+		Method for data standardization. Use 'standard' or 'robust' for the
+		respective sklearn preprocessing scalers, or provide a custom scaler 
+		object with fit/transform methods. Set to None or empty string to 
+		disable scaling.
 	"""
 
 	def __init__(
@@ -358,21 +479,30 @@ class HDBScanClustering:
 		**kwargs
 	) -> 'HDBScanClustering':
 		"""
-		Prepare a multiprocess-enabled scan through the HDBSCAN hyperparameters min_cluster_size and min_samples. Run the scan with `.scan_full()` or `.scan_summary()`.
+		Prepare a multiprocess-enabled scan through the HDBSCAN hyperparameters 
+		min_cluster_size and min_samples. Run the scan with `.scan_full()` or `.scan_summary()`.
 
 		Parameters
 		----------
 		scan_cluster_size
-			Tuple (min, max, step) for scanning the min_cluster_size parameter of HDBSCAN. If step size is omitted, will be set to 1.
+			Tuple (min, max, step) for scanning the min_cluster_size parameter of HDBSCAN. 
+			If step size is omitted, will be set to 1. Alternatively, any iterable 
+			containing the scan values.
 		scan_samples
-			Tuple (min, max, step) for scanning the min_samples parameter of HDBSCAN. If step size is omitted, will be set to 1. If omitted entirely, will be set to cover the entire parameter space, i.e. (1, max(scan_cluster_size)).
-		
-		Alternatively, for both scan_* parameters, a (non-tuple) iterable can be provided that already contains the scan values.
-
+			Tuple (min, max, step) for scanning the min_samples parameter of HDBSCAN. 
+			If step size is omitted, will be set to 1. If omitted entirely, will be 
+			set to cover the entire parameter space, i.e. (1, max(scan_cluster_size)).
+			Alternatively, any iterable containing the scan values.
 		n_processes
-			Number of parallel processes to use for the hyperparameter scan. Defaults to the available number of CPUs reduced by 2.
-		kwargs
-			Passed to `HDBSCAN`.
+			Number of parallel processes to use for the hyperparameter scan. 
+			If None, defaults to max(1, cpu_count - 2).
+		**kwargs
+			Additional keyword arguments passed to `hdbscan.HDBSCAN`.
+
+		Returns
+		-------
+		self
+			Returns self for method chaining.
 		"""
 
 		def create_iterable(scan_parameter):
@@ -411,25 +541,26 @@ class HDBScanClustering:
 		**kwargs
 	) -> tuple[Union[ArrayLike, pd.DataFrame], np.ndarray, np.ndarray]:
 		"""
-		Run single execution of HDBSCAN.
+		Run single execution of HDBSCAN clustering.
 		
 		Parameters
 		----------
 		verbosity
 			Verbosity level of the logging: 0 = no logging, 2 = max logging.
-		kwargs
-			Passed to `HDBSCAN`.
+		**kwargs
+			Additional keyword arguments passed to `hdbscan.HDBSCAN`.
 		
 		Returns
 		-------
 		data
-			The data object that is used for clustering. If scaling is applied (as is default), it is not the same as what is passed in; if scaling is disabled, it is the same.
+			The data object used for clustering. If scaling is applied (default), 
+			it differs from the input; if scaling is disabled, it's identical.
 		cluster_labels
-			Label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
+			Cluster labels for all data points (length n_samples). Values of -1 
+			denote unclustered data, 0 the first cluster, 1 the second, etc.
 		cluster_probabilities
-			Probability of cluster association for all data points, array of length n_samples.
+			Probability of cluster association for all data points (length n_samples).
 		"""
-
 		# kwargs_hdbscan = dict(approx_min_span_tree=False)
 		kwargs_hdbscan = dict(self.hdbscan_args)
 		kwargs_hdbscan.update(kwargs)
@@ -459,7 +590,10 @@ class HDBScanClustering:
 		return_range: bool = True
 	) -> Union['awkward.Array', tuple['awkward.Array', tuple[Iterable, Iterable]]]:
 		"""
-		After preparation with `.HyperparameterScan()`, run a summary-only scan. This retains only the number of points per cluster for each hyperparameter scan point, which is sufficient for later displaying the clustering as summary statistics.
+		After preparation with `.HyperparameterScan()`, run a summary-only scan.
+		
+		This retains only the number of points per cluster for each hyperparameter scan point, 
+		which is sufficient for later displaying the clustering as summary statistics.
 
 		Parameters
 		----------
@@ -468,8 +602,12 @@ class HDBScanClustering:
 
 		Returns
 		-------
-		Awkward array with min_samples/min_cluster_size scan points along first/second axis. Third axis contains the numbers of points of each cluster, starting with unclustered points. Because the number of clusters is variable, this third axis has variable length.
-		If return_range is True, returns as second value a tuple containing the scanned values of min_samples and min_cluster_size.
+		result
+			Awkward array with min_samples/min_cluster_size scan points along first/second axis. 
+			Third axis contains the numbers of points of each cluster, starting with unclustered points. 
+			Because the number of clusters is variable, this third axis has variable length.
+		range_info
+			If return_range is True, tuple containing the scanned values of min_samples and min_cluster_size.
 		"""
 
 		if self._scan_mode is None:
@@ -506,19 +644,21 @@ class HDBScanClustering:
 
 		Parameters
 		----------
-		hdf5_file : str or pathlib.Path
+		hdf5_file
 			Path to the HDF5 file containing the HDBSCAN scan results.
-		dataset_name : str, optional
-			Name of the dataset within the HDF5 file to read (default is "HDBSCAN_scan").
-		indices_enumerated : bool, optional
-			Whether to yield enumerated indices (0-based counting indices), or the real parameter values (default).
+		dataset_name
+			Name of the dataset within the HDF5 file to read.
+		indices_enumerated
+			Whether to yield enumerated indices (0-based counting indices), 
+			or the real parameter values (default).
 
 		Yields
 		------
-		cluster_labels : numpy.ndarray
-			The array of cluster labels at the given grid position (hyperparameter combination).
-		indices : tuple (min_cluster_size, min_samples) or (x, y)
-			Either the hyperparameter values or the grid indices corresponding to the current hyperparameters as determined by indices_enumerated.
+		cluster_labels
+			Array of cluster labels at the given grid position (hyperparameter combination).
+		hyperparameters
+			Either the hyperparameter values or the grid indices corresponding to the 
+			current hyperparameters as determined by indices_enumerated.
 		"""
 
 		with h5py.File(hdf5_file, 'r') as infile:
@@ -550,7 +690,8 @@ class HDBScanClustering:
 		Parameters
 		----------
 		input_file
-			Path to an HDF5 file that contains a dataset with cluster label lists for each hyperparameter scan point.
+			Path to an HDF5 file that contains a dataset with cluster label lists 
+			for each hyperparameter scan point.
 		dataset_name
 			Name of the dataset in the HDF5 file.
 		return_range
@@ -558,8 +699,12 @@ class HDBScanClustering:
 
 		Returns
 		-------
-		Awkward array with min_samples/min_cluster_size scan points along first/second axis. Third axis contains the numbers of points of each cluster, starting with unclustered points. Because the number of clusters is variable, this third axis has variable length.
-		If return_range is True, returns as second value a tuple containing the scanned values of min_samples and min_cluster_size.
+		result
+			Awkward array with min_samples/min_cluster_size scan points along first/second axis. 
+			Third axis contains the numbers of points of each cluster, starting with unclustered points. 
+			Because the number of clusters is variable, this third axis has variable length.
+		range_info
+			If return_range is True, tuple containing the scanned values of min_samples and min_cluster_size.
 		"""
 
 		with h5py.File(input_file, 'r') as infile:
@@ -587,12 +732,16 @@ class HDBScanClustering:
 		dataset_name: str = "HDBSCAN_scan"
 	) -> None:
 		"""
-		After preparation with `.HyperparameterScan()`, run a full scan. This saves the entire clustering information for each hyperparameter scan point in an HDF5 file. The memory consumption is significantly larger than for `.scan_summary()`.
+		After preparation with `.HyperparameterScan()`, run a full scan. 
+		
+		This saves the entire clustering information for each hyperparameter scan point 
+		in an HDF5 file. The memory consumption is significantly larger than for `.scan_summary()`.
 
 		Parameters
 		----------
 		output_file
-			Path to an HDF5 file (existing or not) where the resulting cluster label lists are saved for each hyperparameter scan point.
+			Path to an HDF5 file (existing or not) where the resulting cluster label lists 
+			are saved for each hyperparameter scan point.
 		dataset_name
 			Name of the dataset to add to the HDF5 file.
 		"""
@@ -626,18 +775,24 @@ class HDBScanClustering:
 
 		Parameters
 		----------
-		cluster_scan (array_like)
-			The result of a summarized hyperparameter scan for clustering (i.e. only cluster counts, not cluster labels for all points).
-		ranges (tuple)
-			Min and max values of min_cluster_size and of min_samples. Alternatively, the hyperparameter scan values from which the min and max values are taken.
-		trunc_clusters (int)
-			Maximum number of clusters to display. Truncates numbers larger than this value. False or 0 disables truncation.
-		kwargs
-			Additional keyword arguments to be passed to imshow().
+		cluster_scan
+			The result of a summarized hyperparameter scan for clustering 
+			(i.e. only cluster counts, not cluster labels for all points).
+		ranges
+			Min and max values of min_cluster_size and of min_samples as 
+			(min_cluster_size_min, min_cluster_size_max, min_samples_min, min_samples_max).
+			Alternatively, the hyperparameter scan values as (iter_samples, iter_cluster_size) 
+			from which the min and max values are taken.
+		trunc_clusters
+			Maximum number of clusters to display. Truncates numbers larger than this value. 
+			0 disables truncation.
+		**kwargs
+			Additional keyword arguments passed to `matplotlib.pyplot.imshow`.
 
 		Returns
 		-------
-		The generated `matplotlib.figure.Figure` object containing the plots.
+		figure
+			The generated matplotlib Figure object containing the plots.
 		"""
 
 		kwargs_imshow = dict(
@@ -790,26 +945,37 @@ def plot_highdim(
 	**kwargs
 ) -> None:
 	"""
-	Plot clustered data in various forms.
+	Plot clustered data in various visualization forms.
+
+	This function creates visualizations of high-dimensional clustered data using different 
+	plot types including 2D projections, 3D scatter plots, corner plots, and UMAP embeddings.
 
 	Parameters
 	----------
 	data
-		Data points in arbitrary dimensions, array of shape (n_samples, n_dims).
+		Data points array of shape (n_samples, n_dims).
 	cluster_labels
-		If the data has been clustered previously, you can color-code clusters of data points. Provide the label of the associated cluster (integer) for all data points, array of length n_samples. Values of -1 denote unclustered data, 0 the first cluster, 1 the second etc.
+		Cluster labels for data points. Integer array of length n_samples where 
+		-1 denotes unclustered data, 0 the first cluster, 1 the second, etc.
 	cluster_probs
-		Probability of cluster association for all data points, array of length n_samples.
+		Probability of cluster association for all data points.
 	plot_type
-		Type of plot to produce. '2d': detailled 2D plot with dendrogram; '3d': plotly 3D plot (3 dimensions only); 'corner': corner (triangle) plot; 'umap': UMAP embedding into two dimensions.
+		Type of plot: '2d' (detailed 2D with dendrogram), '3d' (plotly 3D plot),
+		'corner' (corner/triangle plot), 'umap' (UMAP embedding to 2D).
 	fig
-		matplotlib.figure object to re-use. If omitted, create new object with suitable figure size based on the number of dimensions.
+		Existing matplotlib Figure object to reuse. If None, creates new figure 
+		with suitable size based on dimensions.
 	ranges
-		Data range to limit all 2D (x- and y-axis) and 1D plots (x-axis) to. Either min and max values, or in case of only one value will use [-ranges, ranges] to limit axes.
+		Data range limits for axes. Either (min, max) tuple or single value 
+		for symmetric range [-ranges, ranges].
+	**kwargs
+		Additional keyword arguments passed to the plotting function.
 	
-	kwargs will be passed to the final plot function.
+	Raises
+	------
+	ValueError
+		If data has less than 2 dimensions or incompatible plot_type.
 	"""
-
 	n_dim = data.shape[1]
 
 	if n_dim < 2:
@@ -1009,20 +1175,20 @@ def get_corner_axes(
 ) -> list[mpl.axes.Axes]:
 	"""
 	Return specific axes of a corner plot as a list (e.g. to perform some operation on them).
+	
 	Axes with the label "NOCORNER" are ignored.
 
 	Parameters
 	----------
 	which
-		Which axes to return.
-		all: all fixed axes, i.e. all 2D and 1D distributions
-		corner: lower corner, i.e. all 2D distributions
-		diag: diagonal, i.e. all 1D distributions
+		Which axes to return: 'all' (all fixed axes, i.e. all 2D and 1D distributions),
+		'corner' (lower corner, i.e. all 2D distributions), 'diag' (diagonal, i.e. all 1D distributions).
 	fig
 		Figure to use. If omitted, will use the current figure.
 
 	Returns
 	-------
+	axes_list
 		A list of the requested axes objects.
 	"""
 	if fig is None:
@@ -1058,23 +1224,26 @@ def plot_hyperparameter_scan(
 
 	Parameters
 	----------
-	data (array_like)
+	data
 		The data that has been clustered.
-	cluster_scan (array_like)
-		The result of a summarized hyperparameter scan for clustering (i.e. only cluster counts, not cluster labels for all points).
-	ranges (tuple)
-		Min and max values of min_cluster_size and of min_samples. Alternatively, the hyperparameter scan values from which the min and max values are taken.
-	n_cluster_trunc (int)
+	cluster_scan
+		The result of a summarized hyperparameter scan for clustering 
+		(i.e. only cluster counts, not cluster labels for all points).
+	ranges
+		Min and max values of min_cluster_size and of min_samples as 
+		(min_cluster_size_min, min_cluster_size_max, min_samples_min, min_samples_max).
+		Alternatively, the hyperparameter scan values as (iter_samples, iter_cluster_size) 
+		from which the min and max values are taken.
+	n_cluster_trunc
 		Maximum number of clusters to display.
-	kwargs
-		Additional keyword arguments to be passed to imshow().
+	**kwargs
+		Additional keyword arguments passed to `matplotlib.pyplot.imshow`.
 
 	Returns
 	-------
-	The generated `matplotlib.figure.Figure` object containing the plots.
+	figure
+		The generated matplotlib Figure object containing the plots.
 	"""
-
-
 	kwargs_imshow = dict(
 		aspect = 'auto',
 		interpolation = 'none',
@@ -1160,7 +1329,8 @@ def plot_pairgrid(
 	**pairplot_kws
 ) -> 'sns.axisgrid.PairGrid':
 	"""
-	Make a seaborn pairplot with two simultaneous plotting styles, optionally with highlighting points according to one or more masks.
+	Make a seaborn pairplot with two simultaneous plotting styles, optionally 
+	with highlighting points according to one or more masks.
 	
 	Parameters
 	----------
@@ -1170,6 +1340,10 @@ def plot_pairgrid(
 		DataFrame or list of DataFrames where True values indicate points to highlight.
 	label
 		Label(s) of the highlighted points to be put into a legend.
+	color
+		Color(s) for the highlighted points.
+	marker
+		Marker style(s) for the highlighted points.
 	scatter_kws
 		Keyword arguments for `seaborn.scatterplot`.
 	**pairplot_kws
@@ -1177,7 +1351,8 @@ def plot_pairgrid(
 
 	Returns
 	-------
-	The seaborn PairGrid instance.
+	pairgrid
+		The seaborn PairGrid instance.
 	"""
 
 	# default colors can be changed in case of several masks
