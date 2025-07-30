@@ -1,17 +1,29 @@
 # tools for high-dimensional explorative data analysis
 
 import numpy as np
-import matplotlib as pml
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import corner
 
 from tools import *
 
+from typing import Any, Union, Optional, Iterable, Iterator
+from numpy.typing import ArrayLike
+
+
 import warnings
 warnings.filterwarnings("ignore", module="corner")
 
 
-def plot_with_marginals(x, y, figsize=(10, 10), hist=False, log=False, SOI=None, names_1RXS=None):
+def plot_with_marginals(
+	x: ArrayLike, 
+	y: ArrayLike, 
+	figsize: tuple[float, float] = (10, 10), 
+	hist: bool = False, 
+	log: bool = False, 
+	SOI: Optional[dict] = None, 
+	names_1RXS: Optional[ArrayLike] = None
+) -> tuple[mpl.axes.Axes, callable, callable, callable]:
 	"""2D plot (scatter plot or color histogram) with 1D histograms of the marginals at the sides. Adapted from: https://matplotlib.org/stable/gallery/lines_bars_and_markers/scatter_hist.html"""
 	 
 	fig = plt.figure(figsize=figsize)
@@ -77,7 +89,12 @@ import hdbscan
 import seaborn as sns
 
 hdbscan_results = None
-def do_cluster(data, plot_kwargs={}, plot_dims=(0, 1), **kwargs):
+def do_cluster(
+	data: ArrayLike, 
+	plot_kwargs: dict = {}, 
+	plot_dims: tuple[int, int] = (0, 1), 
+	**kwargs
+) -> 'hdbscan.HDBSCAN':
 	
 	try:
 		data.shape
@@ -141,7 +158,7 @@ def do_cluster(data, plot_kwargs={}, plot_dims=(0, 1), **kwargs):
 	
 	return clusterer
 
-def plot_tree():
+def plot_tree() -> None:
 	global hdbscan_results
 	clusterer, color_palette = hdbscan_results
 	
@@ -150,7 +167,15 @@ def plot_tree():
 
 
 import plotly.graph_objects as go
-def cluster_corner(data, labels=None, fig=None, plot_kwargs={}, corner_kwargs={}, plot_3d=False, **kwargs):
+def cluster_corner(
+	data: ArrayLike, 
+	labels: Optional[list[str]] = None, 
+	fig: Optional[mpl.figure.Figure] = None, 
+	plot_kwargs: dict = {}, 
+	corner_kwargs: dict = {}, 
+	plot_3d: bool = False, 
+	**kwargs
+) -> Union[mpl.figure.Figure, 'plotly.graph_objects.Figure']:
 
 	corner_kwargs_ = dict(bins=100, range=np.array([np.nanmin(data, axis=0), np.nanmax(data, axis=0)]).T, labels=labels, plot_contours=False, plot_density=False)
 	plot_kwargs_ = dict(marker=',', alpha=0.1)
@@ -246,7 +271,11 @@ class HDBScanClustering:
 		Metod to use for data standardization. HDBSCAN should be provided with standardized data for best results. Use 'standard' or 'robust' for the respective `sklearn.preprocessing` scaler, or provide an object that has the same signature. Leave empty to disable scaling.
 	"""
 
-	def __init__(self, data, standardize='robust') -> None:
+	def __init__(
+		self, 
+		data: Union[ArrayLike, pd.DataFrame], 
+		standardize: Optional[Union[str, object]] = 'robust'
+	) -> None:
 		self._scan_mode = None
 
 		self.hdbscan_args = dict(
@@ -270,14 +299,14 @@ class HDBScanClustering:
 
 
 	@classmethod
-	def _get_cluster_counts(cls, cluster_labels):
+	def _get_cluster_counts(cls, cluster_labels: ArrayLike) -> np.ndarray:
 		_, counts = np.unique(cluster_labels, return_counts=True)
 		if -1 not in cluster_labels:  # unclustered points not guaranteed to exist
 			counts = np.insert(counts, 0, 0)
 		return counts
 
 	@classmethod
-	def _reorder_clusters(cls, cluster_labels):
+	def _reorder_clusters(cls, cluster_labels: ArrayLike) -> np.ndarray:
 		"""Re-order cluster labels from largest to smallest cluster."""
 
 		uniq_labels, uniq_counts = np.unique(cluster_labels, return_counts=True)
@@ -298,7 +327,7 @@ class HDBScanClustering:
 		return cluster_labels_reordered
 
 
-	def _scan(self, min_samples):
+	def _scan(self, min_samples: int) -> tuple[int, Union[list, np.ndarray]]:
 
 		if self._scan_mode == "summary":
 			result = []
@@ -321,7 +350,13 @@ class HDBScanClustering:
 		return min_samples, result  # return min_samples again to ensure correct assignment of result in multiprocess environment
 
 
-	def HyperparameterScan(self, scan_cluster_size, scan_samples=None, n_processes=os.cpu_count()-2, **kwargs):
+	def HyperparameterScan(
+		self, 
+		scan_cluster_size: Union[tuple[int, ...], Iterable[int]], 
+		scan_samples: Optional[Union[tuple[int, ...], Iterable[int]]] = None, 
+		n_processes: Optional[int] = None, 
+		**kwargs
+	) -> 'HDBScanClustering':
 		"""
 		Prepare a multiprocess-enabled scan through the HDBSCAN hyperparameters min_cluster_size and min_samples. Run the scan with `.scan_full()` or `.scan_summary()`.
 
@@ -355,6 +390,9 @@ class HDBScanClustering:
 			scan_samples = (1, max(self.iter_cluster_size))
 		self.iter_samples = create_iterable(scan_samples)
 
+		if n_processes is None:
+			n_processes = max(1, os.cpu_count() - 2) if os.cpu_count() else 1
+
 		if min(self.iter_samples) > min(self.iter_cluster_size) or max(self.iter_samples) > max(self.iter_cluster_size):
 			raise ValueError("Only values of min_cluster_size equal to or larger than min_samples make sense! Therefore minimum/maximum of scan_samples must be smaller than minimum/maximum of scan_cluster_size.")
 
@@ -367,7 +405,11 @@ class HDBScanClustering:
 		return self
 
 
-	def cluster(self, verbosity=2, **kwargs):
+	def cluster(
+		self, 
+		verbosity: int = 2, 
+		**kwargs
+	) -> tuple[Union[ArrayLike, pd.DataFrame], np.ndarray, np.ndarray]:
 		"""
 		Run single execution of HDBSCAN.
 		
@@ -412,7 +454,10 @@ class HDBScanClustering:
 		return self.data, cluster_labels, clusterer.probabilities_
 
 
-	def scan_summary(self, return_range=True):
+	def scan_summary(
+		self, 
+		return_range: bool = True
+	) -> Union['awkward.Array', tuple['awkward.Array', tuple[Iterable, Iterable]]]:
 		"""
 		After preparation with `.HyperparameterScan()`, run a summary-only scan. This retains only the number of points per cluster for each hyperparameter scan point, which is sufficient for later displaying the clustering as summary statistics.
 
@@ -447,7 +492,12 @@ class HDBScanClustering:
 
 
 	@classmethod
-	def iterate_scan(cls, hdf5_file, dataset_name="HDBSCAN_scan", indices_enumerated=False):
+	def iterate_scan(
+		cls, 
+		hdf5_file: str, 
+		dataset_name: str = "HDBSCAN_scan", 
+		indices_enumerated: bool = False
+	) -> Iterator[tuple[np.ndarray, tuple[int, int]]]:
 		"""
 		Iterate over a hyperparameter scan result stored in an HDF5 file.
 
@@ -488,7 +538,12 @@ class HDBScanClustering:
 
 
 	@classmethod
-	def summarize_scan(cls, input_file, dataset_name="HDBSCAN_scan", return_range=True):
+	def summarize_scan(
+		cls, 
+		input_file: str, 
+		dataset_name: str = "HDBSCAN_scan", 
+		return_range: bool = True
+	) -> Union['awkward.Array', tuple['awkward.Array', tuple[Iterable, Iterable]]]:
 		"""
 		Summarize a full scan as if it were run with `.scan_summary` without running it again.
 
@@ -526,7 +581,11 @@ class HDBScanClustering:
 		return result
 
 
-	def scan_full(self, output_file, datatset_name="HDBSCAN_scan"):
+	def scan_full(
+		self, 
+		output_file: str, 
+		dataset_name: str = "HDBSCAN_scan"
+	) -> None:
 		"""
 		After preparation with `.HyperparameterScan()`, run a full scan. This saves the entire clustering information for each hyperparameter scan point in an HDF5 file. The memory consumption is significantly larger than for `.scan_summary()`.
 
@@ -555,7 +614,13 @@ class HDBScanClustering:
 					index = self.iter_samples.index(min_samples)
 					dataset[index,:] = cluster_labels
 
-	def plot_scan(self, cluster_scan, ranges, trunc_clusters=False, **kwargs):
+	def plot_scan(
+		self, 
+		cluster_scan: ArrayLike, 
+		ranges: Union[tuple[int, int, int, int], tuple[ArrayLike, ArrayLike]], 
+		trunc_clusters: int = 0, 
+		**kwargs
+	) -> mpl.figure.Figure:
 		"""
 		Plot the results of a HDBSCAN hyperparameter scan as a number of summary statistics.
 
@@ -680,14 +745,27 @@ class HDBScanClustering:
 		return fig
 
 
-def do_clustering(data, verbosity=2, **kwargs):
+def do_clustering(
+	data: Union[ArrayLike, pd.DataFrame], 
+	verbosity: int = 2, 
+	**kwargs
+) -> tuple[Union[ArrayLike, pd.DataFrame], np.ndarray, np.ndarray]:
 	"""Deprecated: Use `HDBScanClustering.cluster` instead."""
 	return HDBScanClustering(data).cluster(verbosity, **kwargs)
 
 
-def do_clustering_scan(data, scan_cluster_size, scan_samples=None, n_processes=os.cpu_count()-2, return_range=False):
+def do_clustering_scan(
+	data: Union[ArrayLike, pd.DataFrame], 
+	scan_cluster_size: tuple[int, ...], 
+	scan_samples: Optional[tuple[int, ...]] = None, 
+	n_processes: Optional[int] = None, 
+	return_range: bool = False
+) -> Union['awkward.Array', tuple['awkward.Array', tuple[int, int, int, int]]]:
 	"""Deprecated: Use `HDBScanClustering.HyperparameterScan` instead."""
 
+	if n_processes is None:
+		n_processes = max(1, os.cpu_count() - 2) if os.cpu_count() else 1
+		
 	scanner = HDBScanClustering(data).HyperparameterScan(scan_cluster_size, scan_samples, n_processes)
 	result = scanner.scan_summary(return_range)
 	
@@ -702,7 +780,15 @@ def do_clustering_scan(data, scan_cluster_size, scan_samples=None, n_processes=o
 	return result
 
 
-def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, fig=None, ranges=None, **kwargs):
+def plot_highdim(
+	data: ArrayLike, 
+	cluster_labels: Optional[ArrayLike] = None, 
+	cluster_probs: Optional[ArrayLike] = None, 
+	plot_type: Optional[str] = None, 
+	fig: Optional[mpl.figure.Figure] = None, 
+	ranges: Optional[Union[tuple[float, float], float]] = None, 
+	**kwargs
+) -> None:
 	"""
 	Plot clustered data in various forms.
 
@@ -917,7 +1003,10 @@ def plot_highdim(data, cluster_labels=None, cluster_probs=None, plot_type=None, 
 	_finish(ranges)
 
 
-def get_corner_axes(which='all', fig=None):
+def get_corner_axes(
+	which: str = 'all', 
+	fig: Optional[mpl.figure.Figure] = None
+) -> list[mpl.axes.Axes]:
 	"""
 	Return specific axes of a corner plot as a list (e.g. to perform some operation on them).
 	Axes with the label "NOCORNER" are ignored.
@@ -957,7 +1046,13 @@ def get_corner_axes(which='all', fig=None):
 	return list(toreturn.flatten())
 
 
-def plot_hyperparameter_scan(data, cluster_scan, ranges, n_cluster_trunc=10, **kwargs):
+def plot_hyperparameter_scan(
+	data: ArrayLike, 
+	cluster_scan: ArrayLike, 
+	ranges: Union[tuple[int, int, int, int], tuple[Iterable, Iterable]], 
+	n_cluster_trunc: int = 10, 
+	**kwargs
+) -> mpl.figure.Figure:
 	"""
 	Plot the results of a HDBSCAN hyperparameter scan as a number of summary statistics.
 
@@ -1055,7 +1150,15 @@ def plot_hyperparameter_scan(data, cluster_scan, ranges, n_cluster_trunc=10, **k
 	return fig
 
 
-def plot_pairgrid(df_data, df_mask=None, label=None, color=None, marker=None, scatter_kws={}, **pairplot_kws):
+def plot_pairgrid(
+	df_data: pd.DataFrame, 
+	df_mask: Optional[Union[pd.DataFrame, list[pd.DataFrame]]] = None, 
+	label: Optional[Union[str, list[str]]] = None, 
+	color: Optional[Union[str, list[str]]] = None, 
+	marker: Optional[Union[str, list[str]]] = None, 
+	scatter_kws: dict = {}, 
+	**pairplot_kws
+) -> 'sns.axisgrid.PairGrid':
 	"""
 	Make a seaborn pairplot with two simultaneous plotting styles, optionally with highlighting points according to one or more masks.
 	

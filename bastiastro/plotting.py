@@ -11,7 +11,7 @@ import astropy.units as u
 plt.rcParams['savefig.dpi'] = 150
 plt.rcParams['axes.grid'] = True
 
-def hist(*arg, **kwargs):
+def hist(*args: Any, **kwargs: Any) -> tuple[Any, Any, Any]:
 	"""Plot a 2D histogram with sensible default settings and conveniences."""
 
 	kwargs_hist = dict(
@@ -20,10 +20,10 @@ def hist(*arg, **kwargs):
 	)
 	kwargs_hist.update(kwargs)
 
-	return plt.hist(*arg, **kwargs_hist)
+	return plt.hist(*args, **kwargs_hist)
 
 
-def plt_legend_toggleable(*args, pickradius=7):
+def plt_legend_toggleable(*args: Any, pickradius: float = 7.) -> None:
 	"""
 	Add a legend that allows clicking on entries to toggle their visibility.
 	
@@ -66,7 +66,15 @@ def plt_legend_toggleable(*args, pickradius=7):
 
 	plt.show()
 
-def plt_skyplot(ra, dec, galactic: bool = False, galaxy: bool = False, figsize: tuple[float, float] = (16, 8), **kwargs):
+
+def plt_skyplot(
+	ra: ArrayLike, 
+	dec: ArrayLike, 
+	galactic: bool = False, 
+	galaxy: bool = False, 
+	figsize: tuple[float, float] = (16, 8), 
+	**kwargs
+) -> tuple[plt.Figure, plt.Axes]:
 	"""
 	Create a sky plot in equatorial or galactic coordinates from arrays of RA and Dec values in degrees.
 

@@ -3,9 +3,12 @@ import pandas as pd
 import os.path as pth
 import warnings
 import pickle as pkl
-from typing import Iterable
 
-def no_nan(array, *args):
+from typing import Any, Union
+from numpy.typing import ArrayLike
+
+
+def no_nan(array: Union[ArrayLike, pd.DataFrame], *args: Union[ArrayLike, pd.DataFrame]) -> Union[ArrayLike, pd.DataFrame, list[ArrayLike]]:
 	"""
 	Remove NaNs from an array or pandas DataFrame.
 	
@@ -72,7 +75,7 @@ def cache_file(url: str) -> str:
 	return ds.abspath(url)
 
 
-def pickle(filename: str, *obj):
+def pickle(filename: str, *obj) -> tuple:
 	"""
 	Save objects to a pickle file. Simple convenience wrapper.
 	
@@ -101,7 +104,7 @@ def pickle(filename: str, *obj):
 	return obj
 
 
-def unpickle(filename: str):
+def unpickle(filename: str) -> Any:
 	"""
 	Load a pickled object from a pickle file. Dumb wrapper for dumb people (or those that can never remember the one-liner).
 	

@@ -1,10 +1,11 @@
 import re
-from typing import Iterable
 import pandas as pd
 from astroquery.simbad import Simbad
 
+from typing import Optional, Iterable
 
-def get_catalog_ID(name: str, catalog: str):
+
+def get_catalog_ID(name: str, catalog: str) -> Optional[str]:
 	"""
 	Get the ID of an object by its common name as it appears in a certain catalog. 
 	
