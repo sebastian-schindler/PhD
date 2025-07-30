@@ -1,5 +1,5 @@
 """
-Tools package for astronomical data analysis and visualization.
+Package bastiastro for astronomical data analysis and visualization.
 
 This package provides utilities for:
 - Data cleaning and manipulation (core)
@@ -8,8 +8,8 @@ This package provides utilities for:
 - Astronomy-specific tools (astronomy)
 
 Usage:
-    from tools import *  # Import everything (backwards compatible)
-    from tools.plotting import plt_skyplot  # Import specific modules
+    from bastiastro import *  # Import everything (backwards compatible)
+    from bastiastro.plotting import plt_skyplot  # Import specific modules
 """
 
 # Import everything from submodules for backwards compatibility

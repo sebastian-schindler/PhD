@@ -11,11 +11,14 @@ import warnings
 
 # Third-party imports
 import numpy as np
+import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 import corner
 
-from tools import *
+# Package imports
+from bastiastro.core import no_nan
 
 # Type checking imports
 from typing import Any, Union, Optional, Iterable, Iterator
