@@ -8,7 +8,7 @@ from typing import Any, Union
 from numpy.typing import ArrayLike
 
 
-def no_nan(array: Union[ArrayLike, pd.DataFrame], *args: Union[ArrayLike, pd.DataFrame]) -> Union[ArrayLike, pd.DataFrame, list[ArrayLike]]:
+def no_nan(*arrays: Union[ArrayLike, pd.DataFrame]) -> Union[ArrayLike, pd.DataFrame, list[ArrayLike]]:
 	"""
 	Remove NaNs from an array or pandas DataFrame.
 	
@@ -17,38 +17,44 @@ def no_nan(array: Union[ArrayLike, pd.DataFrame], *args: Union[ArrayLike, pd.Dat
 	
 	Parameters
 	----------
-	array : array-like or pd.DataFrame
-		Primary array or DataFrame to process.
-	*args : array-like
-		Additional arrays of same shape as array.
+	*arrays
+		One or more arrays or a single DataFrame to process. All arrays must have the same shape.
 	
 	Returns
 	-------
-	Cleaned array(s) with NaN values removed. For single input, returns the cleaned array.
-	For multiple inputs, returns list of cleaned arrays.
+	For single input, returns the cleaned array or DataFrame. For multiple inputs, 
+	returns list of cleaned arrays.
 	"""
+	if len(arrays) == 0:
+		raise ValueError("At least one array must be provided")
+	
+	first_array = arrays[0]
+	
+	# Handle DataFrame case - only supports single DataFrame
+	if isinstance(first_array, pd.DataFrame):
+		if len(arrays) == 1:
+			return first_array.dropna()
+		else:
+			raise ValueError("Multiple DataFrames are not supported. Convert to numpy arrays first.")
 
-	if type(array) is pd.DataFrame and len(args) == 0:  # if DataFrame, only one DataFrame makes sense
-		return array.dropna()
-
-	if array.ndim == 2:
+	if first_array.ndim == 2 and len(arrays) == 1:
 		print("Interpreting 2-dimensional array as multiple inputs instead of flattening array.")
-		return no_nan(*array.T).T
+		return no_nan(*first_array.T).T
 
-	mask = ~ np.isnan(array)
+	mask = ~np.isnan(first_array)
 	
-	if len(args) == 0:
-		return array[mask]
+	if len(arrays) == 1:
+		return first_array[mask]
 	
-	for i, arg in enumerate(args):
-		if arg.shape != mask.shape:
+	for i, array in enumerate(arrays[1:], 1):
+		if array.shape != mask.shape:
 			raise ValueError("All arrays must have the same shape")
 		try:
-			mask &= ~ np.isnan(arg)
+			mask &= ~np.isnan(array)
 		except TypeError:
-			warnings.warn("Ignoring array no. %d in mask creation due to incompatible types" % (i+2))
+			warnings.warn(f"Ignoring array no. {i+1} in mask creation due to incompatible types")
 	
-	return np.array( [array[mask]] + [arg[mask] for arg in args] )
+	return [array[mask] for array in arrays]
 
 
 def cache_file(url: str) -> str:
