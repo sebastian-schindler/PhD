@@ -603,7 +603,7 @@ class HDBScanClustering:
 
 		with h5py.File(output_file, 'a') as outfile:
 
-			dataset = outfile.create_dataset(datatset_name, shape=(len(self.iter_samples), len(self.iter_cluster_size), len(self.data)), dtype='int')
+			dataset = outfile.create_dataset(dataset_name, shape=(len(self.iter_samples), len(self.iter_cluster_size), len(self.data)), dtype='int')
 			dataset.attrs["min_samples"] = self.iter_samples
 			dataset.attrs["min_cluster_size"] = self.iter_cluster_size
 
