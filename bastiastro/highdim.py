@@ -8,6 +8,9 @@ for astronomical data mining and parameter space exploration.
 
 # Python built-in imports
 import warnings
+import os
+import tempfile
+from concurrent import futures
 
 # Third-party imports
 import numpy as np
@@ -15,17 +18,28 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-import corner
+import seaborn as sns
+import sklearn as sk
 
 # Package imports
 from bastiastro.core import no_nan
 
 # Type checking imports
-from typing import Any, Union, Optional, Iterable, Iterator
+from typing import TYPE_CHECKING, Any, Union, Optional, Iterable, Iterator
 from numpy.typing import ArrayLike
+from bastiastro import _lazy_import
 
+# Type checking imports for all optional dependencies
+if TYPE_CHECKING:
+	import corner
+	import hdbscan
+	import plotly.graph_objects
+	import awkward
+	import h5py
 
 warnings.filterwarnings("ignore", module="corner")
+
+hdbscan_results = None
 
 
 def plot_with_marginals(
@@ -91,7 +105,7 @@ def plot_with_marginals(
 	if hist:
 		def plot_ax(**kwargs):
 			ax.clear()
-			ax.hist2d(x, y, cmap=plt.matplotlib.colormaps['Blues'], **kwargs);
+			ax.hist2d(x, y, cmap=mpl.colormaps['Blues'], **kwargs);
 	else:
 		log = False
 		def plot_ax(**kwargs):
@@ -130,10 +144,6 @@ def plot_with_marginals(
 	return ax, plot_ax, plot_histx, plot_histy
 
 
-import hdbscan
-import seaborn as sns
-
-hdbscan_results = None
 def do_cluster(
 	data: ArrayLike, 
 	plot_kwargs: dict = {}, 
@@ -168,6 +178,8 @@ def do_cluster(
 	ImportError
 		If hdbscan package is not installed.
 	"""
+	_lazy_import('hdbscan')
+	
 	try:
 		data.shape
 	except AttributeError:
@@ -250,7 +262,6 @@ def plot_tree() -> None:
 	clusterer.condensed_tree_.plot(select_clusters=True, selection_palette=color_palette)
 
 
-import plotly.graph_objects as go
 def cluster_corner(
 	data: ArrayLike, 
 	labels: Optional[list[str]] = None, 
@@ -293,6 +304,14 @@ def cluster_corner(
 	ImportError
 		If required packages (hdbscan, corner, or plotly) are not installed.
 	"""
+	_lazy_import('hdbscan')
+
+	if plot_3d:
+		_lazy_import('plotly')
+		import plotly.graph_objects as go
+	else:
+		_lazy_import('corner')
+
 	corner_kwargs_ = dict(bins=100, range=np.array([np.nanmin(data, axis=0), np.nanmax(data, axis=0)]).T, labels=labels, plot_contours=False, plot_density=False)
 	plot_kwargs_ = dict(marker=',', alpha=0.1)
 	
@@ -301,7 +320,6 @@ def cluster_corner(
 
 	if "approx_min_span_tree" not in kwargs:
 		kwargs["approx_min_span_tree"] = False
-
 
 	clusterer = hdbscan.HDBSCAN(**kwargs).fit(data)
 	n_cluster = clusterer.labels_.max() + 1
@@ -369,12 +387,6 @@ def cluster_corner(
 	return fig
 
 
-import tempfile
-import awkward as ak
-from concurrent import futures
-import os
-import h5py
-import sklearn as sk
 class HDBScanClustering:
 	"""
 	Perform unsupervised clustering with HDBSCAN algorithm.
@@ -564,7 +576,7 @@ class HDBScanClustering:
 		cluster_probabilities
 			Probability of cluster association for all data points (length n_samples).
 		"""
-		# kwargs_hdbscan = dict(approx_min_span_tree=False)
+		_lazy_import('hdbscan')
 		kwargs_hdbscan = dict(self.hdbscan_args)
 		kwargs_hdbscan.update(kwargs)
 		
@@ -616,6 +628,7 @@ class HDBScanClustering:
 		if self._scan_mode is None:
 			raise RuntimeError("Hyperparameter scan was not prepared yet! Run `HyperparameterScan()` with appropriate arguments first to instantiate an `HDBScanClustering` object, and then call this method of the object.")
 		self._scan_mode = "summary"
+		ak = _lazy_import('awkward')
 
 		with futures.ProcessPoolExecutor(max_workers=self.n_processes) as pool:
 			worker_results = pool.map(self._scan, self.iter_samples)
@@ -663,6 +676,7 @@ class HDBScanClustering:
 			Either the hyperparameter values or the grid indices corresponding to the 
 			current hyperparameters as determined by indices_enumerated.
 		"""
+		_lazy_import('h5py')
 
 		with h5py.File(hdf5_file, 'r') as infile:
 
@@ -709,6 +723,8 @@ class HDBScanClustering:
 		range_info
 			If return_range is True, tuple containing the scanned values of min_samples and min_cluster_size.
 		"""
+		_lazy_import('h5py')
+		ak = _lazy_import('awkward')
 
 		with h5py.File(input_file, 'r') as infile:
 			dataset = infile[dataset_name]
@@ -752,6 +768,7 @@ class HDBScanClustering:
 		if self._scan_mode is None:
 			raise RuntimeError("Hyperparameter scan was not prepared yet! Run `HyperparameterScan()` with appropriate arguments first to instantiate an `HDBScanClustering` object, and then call this method of the object.")
 		self._scan_mode = "full"
+		_lazy_import('h5py')
 
 		with h5py.File(output_file, 'a') as outfile:
 
@@ -797,6 +814,7 @@ class HDBScanClustering:
 		figure
 			The generated matplotlib Figure object containing the plots.
 		"""
+		ak = _lazy_import('awkward')
 
 		kwargs_imshow = dict(
 			aspect = 'auto',
@@ -1041,7 +1059,7 @@ def plot_highdim(
 
 
 	if plot_type == 'corner':
-		import corner
+		_lazy_import('corner')
 		import copy
 
 		kwargs_corner = dict(
@@ -1104,6 +1122,7 @@ def plot_highdim(
 
 
 	if plot_type == '3d':
+		_lazy_import('plotly')
 		import plotly.graph_objects as go
 		import matplotlib.colors as mpl_colors
 
@@ -1247,6 +1266,7 @@ def plot_hyperparameter_scan(
 	figure
 		The generated matplotlib Figure object containing the plots.
 	"""
+	ak = _lazy_import('awkward')
 	kwargs_imshow = dict(
 		aspect = 'auto',
 		interpolation = 'none',

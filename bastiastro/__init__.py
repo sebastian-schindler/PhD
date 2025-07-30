@@ -12,6 +12,51 @@ Usage:
     from bastiastro.plotting import plt_skyplot  # Import specific modules
 """
 
+from types import ModuleType
+
+def _lazy_import(module_name: str) -> ModuleType:
+	"""
+	Import a module lazily with helpful error message if not available.
+	
+	This function provides a simple way to import optional dependencies with
+	clear error messages when packages are missing.
+	
+	Parameters
+	----------
+	module_name
+		Name of the module to import.
+		
+	Returns
+	-------
+	module
+		The imported module object.
+		
+	Raises
+	------
+	ImportError
+		If the module is not installed, with helpful installation message.
+		
+	Example
+	-------
+	# Import optional dependencies lazily
+	from bastiastro import _lazy_import
+	
+	# For modules used with their original name
+	_lazy_import('hdbscan')
+	clusterer = hdbscan.HDBSCAN()
+	
+	# For modules needing an alias
+	ak = _lazy_import('awkward')
+	array = ak.Array([1, 2, 3])
+	"""
+	try:
+		return __import__(module_name)
+	except ImportError:
+		raise ImportError(
+			f"Optional dependency '{module_name}' is not installed. "
+			f"Install it with: pip install {module_name}"
+		) from None
+
 # Import everything from submodules for backwards compatibility
 from .core import *
 from .plotting import *
