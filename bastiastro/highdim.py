@@ -38,8 +38,11 @@ if TYPE_CHECKING:
 	import awkward
 	import h5py
 
+
+# Suppress corner module warnings
 warnings.filterwarnings("ignore", module="corner")
 
+# Global variable to store HDBSCAN results for plot_tree function
 hdbscan_results = None
 
 
@@ -87,7 +90,9 @@ def plot_with_marginals(
 		Function to update the y-axis marginal histogram.
 	"""
 	fig = plt.figure(figsize=figsize)
-	gs = fig.add_gridspec(2, 2,  width_ratios=(4, 1), height_ratios=(1, 4), left=0.1, right=0.9, bottom=0.1, top=0.9, wspace=0.05, hspace=0.05)
+	gs = fig.add_gridspec(2, 2, width_ratios=(4, 1), height_ratios=(1, 4), 
+						  left=0.1, right=0.9, bottom=0.1, top=0.9, 
+						  wspace=0.05, hspace=0.05)
 	ax = fig.add_subplot(gs[1, 0])
 	ax_histx = fig.add_subplot(gs[0, 0], sharex=ax)
 	ax_histy = fig.add_subplot(gs[1, 1], sharey=ax)
@@ -106,22 +111,22 @@ def plot_with_marginals(
 	if hist:
 		def plot_ax(**kwargs):
 			ax.clear()
-			ax.hist2d(x, y, cmap=mpl.colormaps['Blues'], **kwargs);
+			ax.hist2d(x, y, cmap=mpl.colormaps['Blues'], **kwargs)
 	else:
 		log = False
 		def plot_ax(**kwargs):
 			ax.clear()
-			ax.plot(x, y, ',', **kwargs);
+			ax.plot(x, y, ',', **kwargs)
 	
 	# x marginalization (above)
 	def plot_histx(**kwargs):
 		ax_histx.clear()
-		ax_histx.hist(x, **kwargs);
+		ax_histx.hist(x, **kwargs)
 
 	# y marginalisation (right)
 	def plot_histy(**kwargs):
 		ax_histy.clear()
-		ax_histy.hist(y, orientation='horizontal', **kwargs);
+		ax_histy.hist(y, orientation='horizontal', **kwargs)
 	
 	if log:
 		plot_ax(bins=100, norm=LogNorm())
@@ -189,15 +194,15 @@ def do_cluster(
 	if "approx_min_span_tree" not in kwargs:
 		kwargs["approx_min_span_tree"] = False
 	
-	plot_kwargs_ = {
-		"linewidth": 0,
-		"s": 1,
-		"alpha": 0.5
-	}
+	plot_kwargs_ = dict(
+		linewidth=0,
+		s=1,
+		alpha=0.5
+	)
 	plot_kwargs_.update(plot_kwargs)
 	
 	clusterer = hdbscan.HDBSCAN(**kwargs).fit(data.T)
-	print("Found %d clusters" % (clusterer.labels_.max() + 1))
+	print(f"Found {clusterer.labels_.max() + 1} clusters")
 
 	color_palette = sns.color_palette('dark', clusterer.labels_.max()+1)
 	cluster_colors = [color_palette[x] if x >= 0 else (0.5, 0.5, 0.5) for x in clusterer.labels_]
@@ -316,18 +321,27 @@ def cluster_corner(
 	else:
 		_lazy_import('corner')
 
-	corner_kwargs_ = dict(bins=100, range=np.array([np.nanmin(data, axis=0), np.nanmax(data, axis=0)]).T, labels=labels, plot_contours=False, plot_density=False)
-	plot_kwargs_ = dict(marker=',', alpha=0.1)
-	
-	plot_kwargs_.update(plot_kwargs)
+	corner_kwargs_ = dict(
+		bins=100, 
+		range=np.array([np.nanmin(data, axis=0), np.nanmax(data, axis=0)]).T, 
+		labels=labels, 
+		plot_contours=False, 
+		plot_density=False
+	)
 	corner_kwargs_.update(corner_kwargs)
+
+	plot_kwargs_ = dict(
+		marker=',', 
+		alpha=0.1
+	)
+	plot_kwargs_.update(plot_kwargs)
 
 	if "approx_min_span_tree" not in kwargs:
 		kwargs["approx_min_span_tree"] = False
 
 	clusterer = hdbscan.HDBSCAN(**kwargs).fit(data)
 	n_cluster = clusterer.labels_.max() + 1
-	print("Found %d clusters" % n_cluster)
+	print(f"Found {n_cluster} clusters")
 
 	color_palette = sns.color_palette('dark', n_cluster)
 	color_palette.insert(0, (0.5, 0.5, 0.5))
@@ -344,7 +358,7 @@ def cluster_corner(
 			no_nan(data), 
 			fig=fig, 
 			color=(0., 0., 0.), 
-			data_kwargs=dict(plot_kwargs_), **kwargs);
+			data_kwargs=dict(plot_kwargs_), **kwargs)
 
 	for label in range(-1, n_cluster):
 		mask = clusterer.labels_ == label
@@ -374,7 +388,7 @@ def cluster_corner(
 				data_cluster, 
 				fig=fig, 
 				color=color_palette[label], 
-				data_kwargs=dict(plot_kwargs_), **dict(corner_kwargs_));
+				data_kwargs=dict(plot_kwargs_), **dict(corner_kwargs_))
 
 	if plot_3d:
 		layout = go.Layout(height=1000)
@@ -474,7 +488,7 @@ class HDBScanClustering:
 		elif self._scan_mode == "full":
 			result = np.empty((len(self.iter_cluster_size), len(self.data)))  # for each value of min_cluster_size: cluster label for each data point
 
-		print("scanning: min_samples = %d ..." % min_samples, flush=True)
+		print(f"scanning: min_samples = {min_samples} ...", flush=True)
 
 		with tempfile.TemporaryDirectory() as cachedir:
 			for i, min_cluster_size in enumerate(self.iter_cluster_size):
@@ -525,7 +539,7 @@ class HDBScanClustering:
 		"""
 
 		def create_iterable(scan_parameter):
-			if type(scan_parameter) != tuple: # list to iterate
+			if not isinstance(scan_parameter, tuple): # list to iterate
 				return scan_parameter
 			else: # (min, max, step)
 				if len(scan_parameter) < 3: # (min, max) or (max, min) --> (min, max, 1)
@@ -545,8 +559,10 @@ class HDBScanClustering:
 		if min(self.iter_samples) > min(self.iter_cluster_size) or max(self.iter_samples) > max(self.iter_cluster_size):
 			raise ValueError("Only values of min_cluster_size equal to or larger than min_samples make sense! Therefore minimum/maximum of scan_samples must be smaller than minimum/maximum of scan_cluster_size.")
 
-		print("Hyperparameter scan prepared with %d processes in parallel." % n_processes)
-		print("scan range: %d <= min_samples <= %d | %d <= min_cluster_size <= %d" % (min(self.iter_samples), max(self.iter_samples), min(self.iter_cluster_size), max(self.iter_cluster_size)))
+		print(f"Hyperparameter scan prepared with {n_processes} processes in parallel.")
+		print(f"scan range: \
+			{min(self.iter_samples)} <= min_samples <= {max(self.iter_samples)} | \
+			{min(self.iter_cluster_size)} <= min_cluster_size <= {max(self.iter_cluster_size)}")
 
 		self.hdbscan_args.update(kwargs)
 		self.n_processes = n_processes
@@ -581,6 +597,7 @@ class HDBScanClustering:
 			Probability of cluster association for all data points (length n_samples).
 		"""
 		_lazy_import('hdbscan')
+
 		kwargs_hdbscan = dict(self.hdbscan_args)
 		kwargs_hdbscan.update(kwargs)
 		
@@ -595,7 +612,7 @@ class HDBScanClustering:
 			fraction = n_entries / len(cluster_labels)
 			print(f" {cluster_name}: {n_entries} entries ({fraction * 100 :.2f} %)")
 
-		print("Found %d clusters" % n_cluster)
+		print(f"Found {n_cluster} clusters")
 		if verbosity >= 2:
 			print_stats(-1, "unclustered")
 			for label in range(0, n_cluster):
@@ -1019,7 +1036,7 @@ def plot_highdim(
 			print("Using corner plot type.")
 
 	if plot_type == '2d' and n_dim > 2:
-		print("Using the first two dimensions for producing detailed 2D plot of %d dimensions." % n_dim)
+		print(f"Using the first two dimensions for producing detailed 2D plot of {n_dim} dimensions.")
 
 	if n_dim > 30:
 		warn(f"Do you really want to produce a corner plot of {n_dim} dimensions? Consider using a UMAP embedding instead.", stacklevel=2)
@@ -1073,7 +1090,7 @@ def plot_highdim(
 			plot_density = False, 
 			data_kwargs=dict(marker=',', alpha=.1)
 		)
-		if type(data) is pd.DataFrame:
+		if isinstance(data, pd.DataFrame):
 			kwargs_corner['labels'] = data.columns
 		kwargs_corner.update(kwargs)
 
@@ -1089,8 +1106,7 @@ def plot_highdim(
 		corner.corner(
 			no_nan(data), 
 			fig=fig, 
-			# fig=plt.figure(figsize=(figsize, figsize)), 
-			**kwargs_);
+			**kwargs_)
 
 		def _loop(data_cluster, label):
 
@@ -1108,8 +1124,7 @@ def plot_highdim(
 			corner.corner(
 				data_cluster, 
 				fig=fig, 
-				# fig=plt.gcf(), 
-				**kwargs_);
+				**kwargs_)
 
 		def _finish(ranges):
 			[ax.autoscale(axis='y') for ax in get_corner_axes('diag', fig=fig)]
@@ -1171,7 +1186,7 @@ def plot_highdim(
 
 		handles = []
 		def _loop(data_cluster, label):
-			handle = Patch(color=color_palette[label], label="cluster %d" % label)
+			handle = Patch(color=color_palette[label], label=f"cluster {label}")
 			handles.append(handle)
 
 		def _finish(ranges):
@@ -1187,7 +1202,7 @@ def plot_highdim(
 		mask = cluster_labels == label
 		data_cluster = no_nan(data[mask])
 
-		if len(data_cluster) == 0:
+		if not len(data_cluster):
 			continue
 
 		_loop(data_cluster, label)
@@ -1273,6 +1288,7 @@ def plot_hyperparameter_scan(
 		The generated matplotlib Figure object containing the plots.
 	"""
 	ak = _lazy_import('awkward')
+
 	kwargs_imshow = dict(
 		aspect = 'auto',
 		interpolation = 'none',

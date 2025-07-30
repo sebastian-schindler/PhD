@@ -6,11 +6,9 @@ including sky plots, interactive legends, and enhanced histograms.
 """
 
 # Third-party imports
+import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
-import seaborn as sns
-import numpy as np
 import astropy.coordinates as coord
 import astropy.units as u
 
@@ -20,7 +18,6 @@ from numpy.typing import ArrayLike
 from astropy.units.quantity import Quantity
 
 
-# plt.rcParams['figure.dpi'] = 300
 plt.rcParams['savefig.dpi'] = 150
 plt.rcParams['axes.grid'] = True
 
@@ -83,8 +80,8 @@ def hist(*args: Any, **kwargs: Any) -> tuple[Any, Any, Any]:
 		Return value from `plt.hist` containing (n, bins, patches).
 	"""
 	kwargs_hist = dict(
-		bins = 100, 
-		histtype = 'step'
+		bins=100, 
+		histtype='step'
 	)
 	kwargs_hist.update(kwargs)
 
@@ -109,17 +106,19 @@ def plt_legend_toggleable(*args: Any, pickradius: float = 7.) -> None:
 	"""
 	leg = plt.legend(*args)
 
-	ax_objs, labels = plt.gca().get_legend_handles_labels()  # plot object and corresponding labels that are represented in the legend
-	leg_objs = leg.legend_handles  # representation of plot object in the legend
+	# Get plot objects and their corresponding legend representations
+	ax_objs, labels = plt.gca().get_legend_handles_labels()
+	leg_objs = leg.legend_handles
 
-	map_leg_to_ax = {}  # map legend objects to axis objects
-
-	for leg_obj, ax_obj, label in zip(leg_objs, ax_objs, labels):
-		leg_obj.set_picker(pickradius)  # enable mouse interaction with legend object
+	# Create mapping from legend objects to axis objects
+	map_leg_to_ax = {}
+	for leg_obj, ax_obj in zip(leg_objs, ax_objs):
+		# Enable mouse interaction with legend entries
+		leg_obj.set_picker(pickradius)
 		map_leg_to_ax[leg_obj] = ax_obj
 
-	def on_pick(event):  # on pick event, find the original line corresponding to the legend proxy line, and toggle its visibility
-
+	def on_pick(event):
+		"""Handle click events on legend entries to toggle visibility."""
 		leg_obj = event.artist
 		if leg_obj not in map_leg_to_ax:
 			return
@@ -128,7 +127,7 @@ def plt_legend_toggleable(*args: Any, pickradius: float = 7.) -> None:
 		visible = not ax_obj.get_visible()
 		ax_obj.set_visible(visible)
 
-		# change the alpha on the line in the legend, so we can see what lines have been toggled
+		# Update legend appearance to show toggled state
 		leg_obj.set_alpha(1.0 if visible else 0.2)
 
 		plt.gcf().canvas.draw()
@@ -174,29 +173,35 @@ def plt_skyplot(
 	fig = plt.figure(figsize=figsize)
 	ax = plt.subplot(projection='mollweide')
 	plt.grid()
+	
+	# Convert input coordinates to SkyCoord object
 	coords = coord.SkyCoord(ra*u.deg, dec*u.deg)
+	
 	if galactic:
+		# Transform to galactic coordinates
 		coords = coords.transform_to('galactic')
 		coord_x = _transform_galactic_coords(coords.l)
 		coord_y = coords.b
 		xticks, xticklabels = _compute_skyplot_ticks(180, -180)
 		plt.xticks(xticks, xticklabels)
-		plt.text(0.9, 0.1, "Galactic", transform=plt.figure(1).axes[0].transAxes)
- 
+		plt.text(0.9, 0.1, "Galactic", transform=plt.gca().transAxes)
 	else:
+		# Use equatorial coordinates
 		coord_x = _transform_equatorial_coords(coords.ra)
 		coord_y = coords.dec
 		xticks, xticklabels = _compute_skyplot_ticks(360, 0)
 		plt.xticks(xticks, xticklabels)
-		plt.text(0.9, 0.1, "Equatorial", transform=plt.figure(1).axes[0].transAxes)
+		plt.text(0.9, 0.1, "Equatorial", transform=plt.gca().transAxes)
 
 	plt.scatter(coord_x.rad, coord_y.rad, **kwargs)
 	
 	if galaxy:
+		# Add galactic plane overlay
 		plane = coord.SkyCoord(frame='galactic', l=np.linspace(0, 360, 100)*u.deg, b=0*u.deg)
 		plane = plane.transform_to('icrs')
 		plt.plot(_transform_equatorial_coords(plane.ra).rad, plane.dec.rad, 'black', linewidth=.5)
 
+		# Add galactic center marker
 		center = coord.SkyCoord(frame='galactic', l=0*u.deg, b=0*u.deg)
 		center = center.transform_to('icrs')
 		plt.plot(_transform_equatorial_coords(center.ra).rad, center.dec.rad, '*k', markersize=5)
