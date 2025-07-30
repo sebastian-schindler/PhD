@@ -7,6 +7,7 @@ normalization.
 """
 
 # Python built-in imports
+from warnings import warn
 import re
 
 # Third-party imports
@@ -19,7 +20,7 @@ from typing import Optional, Iterable
 
 def get_catalog_ID(name: str, catalog: str) -> Optional[str]:
 	"""
-	Get the ID of an object by its common name as it appears in a certain catalog. 
+	Get the ID of an object by its common name as it appears in a certain catalog.
 	
 	If an error is raised by the Simbad query, make sure to delay subsequent calls to this function by some time.
 	
@@ -78,8 +79,7 @@ def normalize_object_names(names: Iterable[str]) -> pd.Series:
 
 	names_failed = names[names_normalized == '']
 	if len(names_failed) > 0:
-		print(f"Warning: SIMBAD query failed for {len(names_failed)} objects; their original names will be used instead:")
-		[print(f"    {x}") for x in names_failed]
+		warn(f"SIMBAD query failed for {len(names_failed)} objects; their original names will be used instead:\n    {'\n    '.join(names_failed)}")
 		names_normalized[names_normalized == ''] = names_failed
 
 	# replace N whitespace characters with 1 whitespace character

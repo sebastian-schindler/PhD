@@ -8,6 +8,7 @@ for astronomical data mining and parameter space exploration.
 
 # Python built-in imports
 import warnings
+from warnings import warn
 import os
 import tempfile
 from concurrent import futures
@@ -256,6 +257,9 @@ def plot_tree() -> None:
 		If no HDBSCAN results are available (need to run `do_cluster` first).
 	"""
 	global hdbscan_results
+	if hdbscan_results is None:
+		raise RuntimeError("No HDBSCAN results available. Run do_cluster() first.")
+	
 	clusterer, color_palette = hdbscan_results
 	
 	plt.figure(figsize=(10, 6))
@@ -352,7 +356,7 @@ def cluster_corner(
 		# circumvent assertion in corner package by adding first data as many times as needed
 		while data_cluster.shape[0] <= data_cluster.shape[1]:
 			data_cluster = np.concatenate((data_cluster, data_cluster[:1]))
-			print("padded data in cluster %d to circumvent assertion error" % label)
+			warn(f"Padded data in cluster {label} to circumvent assertion error", stacklevel=2)
 
 		if plot_3d:
 			marker = go.Scatter3d(
@@ -1018,7 +1022,7 @@ def plot_highdim(
 		print("Using the first two dimensions for producing detailed 2D plot of %d dimensions." % n_dim)
 
 	if n_dim > 30:
-		warnings.warn("Do you really want to produce a corner plot of %d dimensions? Consider using a UMAP embedding instead." % n_dim)
+		warn(f"Do you really want to produce a corner plot of {n_dim} dimensions? Consider using a UMAP embedding instead.", stacklevel=2)
 
 	if cluster_labels is None:
 		cluster_labels = np.full(len(data), 0)
@@ -1093,7 +1097,7 @@ def plot_highdim(
 			# circumvent assertion in corner package by adding first data as many times as needed
 			while data_cluster.shape[0] <= data_cluster.shape[1]:
 				data_cluster = np.concatenate((data_cluster, data_cluster[:1]))
-				print("Padded data in cluster %d to circumvent assertion error." % label)
+				warn(f"Padded data in cluster {label} to circumvent assertion error", stacklevel=3)
 
 			kwargs_ = dict(color=color_palette[label])
 			kwargs_.update(copy.deepcopy(kwargs_corner)) # deepcopy: https://github.com/dfm/corner.py/issues/251
@@ -1225,11 +1229,13 @@ def get_corner_axes(
 	if which == 'all':
 		toreturn = np.tril(axes_grid, k=0)
 		toreturn = toreturn[toreturn != 0]
-	if which == 'corner':
+	elif which == 'corner':
 		toreturn = np.tril(axes_grid, k=-1)
 		toreturn = toreturn[toreturn != 0]
 	elif which == 'diag':
 		toreturn = axes_grid.diagonal()
+	else:
+		raise ValueError(f"Invalid value for 'which': {which}. Must be 'all', 'corner', or 'diag'.")
 
 	return list(toreturn.flatten())
 

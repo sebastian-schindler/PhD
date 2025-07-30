@@ -7,7 +7,7 @@ Python objects.
 """
 
 # Python built-in imports
-import warnings
+from warnings import warn
 import os.path as pth
 import pickle as pkl
 
@@ -65,7 +65,7 @@ def no_nan(*arrays: Union[ArrayLike, pd.DataFrame]) -> Union[ArrayLike, pd.DataF
 		try:
 			mask &= ~np.isnan(array)
 		except TypeError:
-			warnings.warn(f"Ignoring array no. {i+1} in mask creation due to incompatible types")
+			warn(f"Ignoring array no. {i+1} in mask creation due to incompatible types")
 	
 	return [array[mask] for array in arrays]
 
@@ -143,11 +143,11 @@ def pickle_load(filename: str) -> Any:
 # Backward compatibility aliases
 def pickle(filename: str, *objects) -> tuple:
 	"""Deprecated: Use pickle_save instead."""
-	warnings.warn("Function 'pickle' is deprecated. Use 'pickle_save' instead.", DeprecationWarning, stacklevel=2)
+	warn("Function 'pickle' is deprecated. Use 'pickle_save' instead.", DeprecationWarning, stacklevel=2)
 	return pickle_save(filename, *objects)
 
 
 def unpickle(filename: str) -> Any:
 	"""Deprecated: Use pickle_load instead."""
-	warnings.warn("Function 'unpickle' is deprecated. Use 'pickle_load' instead.", DeprecationWarning, stacklevel=2)
+	warn("Function 'unpickle' is deprecated. Use 'pickle_load' instead.", DeprecationWarning, stacklevel=2)
 	return pickle_load(filename)
