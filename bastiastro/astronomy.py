@@ -79,7 +79,8 @@ def normalize_object_names(names: Iterable[str]) -> pd.Series:
 
 	names_failed = names[names_normalized == '']
 	if len(names_failed) > 0:
-		warn(f"SIMBAD query failed for {len(names_failed)} objects; their original names will be used instead:\n    {'\n    '.join(names_failed)}")
+		failed_names_str = '\n    '.join(names_failed)
+		warn(f"SIMBAD query failed for {len(names_failed)} objects; their original names will be used instead:\n    {failed_names_str}")
 		names_normalized[names_normalized == ''] = names_failed
 
 	# replace N whitespace characters with 1 whitespace character
