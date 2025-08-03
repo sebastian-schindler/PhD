@@ -1265,6 +1265,9 @@ def plot_hyperparameter_scan(
 	"""
 	Plot the results of a HDBSCAN hyperparameter scan as a number of summary statistics.
 
+	.. deprecated:: 
+		Use `HDBScanClustering(data).plot_scan()` instead. This function will be removed in a future version.
+
 	Parameters
 	----------
 	data
@@ -1287,81 +1290,15 @@ def plot_hyperparameter_scan(
 	figure
 		The generated matplotlib Figure object containing the plots.
 	"""
-	ak = _lazy_import('awkward')
-
-	kwargs_imshow = dict(
-		aspect = 'auto',
-		interpolation = 'none',
-		origin='lower',
-		cmap='Blues'
+	warnings.warn(
+		"plot_hyperparameter_scan is deprecated. Use HDBScanClustering(data).plot_scan() instead.", 
+		DeprecationWarning, 
+		stacklevel=2
 	)
-
-	if len(ranges) == 2:  # scan values provided of both hyperparameters
-		iter_samples, iter_cluster_size = ranges
-		kwargs_imshow["extent"] = min(iter_cluster_size), max(iter_cluster_size), min(iter_samples), max(iter_samples)
-	else:  # already min and max values provided
-		kwargs_imshow["extent"] = ranges
-
-	kwargs_imshow["extent"] = np.array(kwargs_imshow["extent"])
-
-	# fence post problem
-	kwargs_imshow["extent"][1] += 1
-	kwargs_imshow["extent"][3] += 1
-
-	# center bins at the respective values
-	kwargs_imshow["extent"] = np.array(kwargs_imshow["extent"]) - 0.5
-
-	kwargs_imshow.update(kwargs)
-
-	# I trust awkward functions this far...
-	number_clusters = np.array(ak.count(cluster_scan, axis=2)) - 1  # do not count unclustered
-	number_clusters[number_clusters > n_cluster_trunc] = n_cluster_trunc + 1
-	cluster_scan_sorted = ak.sort(cluster_scan[:,:,1:], axis=2, ascending=False)
-
-	shape = number_clusters.shape
-	norm = len(data)
-
-	size_max_cluster = np.full(shape, 0, dtype=float)
-	size_secmax_cluster = np.full(shape, 0, dtype=float)
-
-	# ... but no further: long live expressive for loops
-	for i in range(shape[0]):
-		for j in range(shape[1]):
-			try:
-				size_max_cluster[i,j] = cluster_scan_sorted[i,j][0]
-				size_secmax_cluster[i,j] = cluster_scan_sorted[i,j][1]
-			except IndexError:
-				pass
-
-	size_max_cluster /= norm
-	size_secmax_cluster /= norm
-
-	size_unclustered = cluster_scan[:,:,0] / norm
-
-
-	fig, axes = plt.subplots(1, 4, sharey=True, figsize=(20, 5))
-	axes[0].set_ylabel("HDBSCAN min_samples")
-	[ax.set_xlabel("HDBSCAN min_cluster_size") for ax in axes]
-
-	im = axes[0].imshow(number_clusters, **kwargs_imshow)
-	plt.colorbar(im, ax=axes[0])
-	axes[0].set_title("number of clusters")
-
-	im = axes[1].imshow(size_max_cluster, **kwargs_imshow)
-	plt.colorbar(im, ax=axes[1])
-	axes[1].set_title("rel. size of largest cluster")
 	
-	im = axes[2].imshow(size_secmax_cluster, **kwargs_imshow)
-	plt.colorbar(im, ax=axes[2])
-	axes[2].set_title("rel. size of second-largest cluster")
-	
-	im = axes[3].imshow(size_unclustered, **kwargs_imshow)
-	plt.colorbar(im, ax=axes[3])
-	axes[3].set_title("rel. size of unclustered points")
-
-	fig.set_tight_layout(True)
-
-	return fig
+	# Create a dummy clusterer instance just for accessing the plot_scan method
+	clusterer = HDBScanClustering(data, standardize=None)  # No standardization for plotting
+	return clusterer.plot_scan(cluster_scan, ranges, trunc_clusters=n_cluster_trunc, **kwargs)
 
 
 def plot_pairgrid(
