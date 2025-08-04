@@ -283,6 +283,10 @@ def cluster_corner(
 	"""
 	Create corner plot with HDBSCAN clustering visualization.
 	
+	.. deprecated::
+		Use `HDBScanClustering(data, standardize=None).cluster()` followed by `plot_highdim()` instead. 
+		This function will be removed in a future version.
+	
 	This function performs HDBSCAN clustering on the input data and visualizes
 	the results as either a corner plot (2D projections) or a 3D scatter plot.
 	
@@ -313,13 +317,15 @@ def cluster_corner(
 	ImportError
 		If required packages (hdbscan, corner, or plotly) are not installed.
 	"""
-	_lazy_import('hdbscan')
-
-	if plot_3d:
-		_lazy_import('plotly')
-		import plotly.graph_objects as go
-	else:
-		_lazy_import('corner')
+	warn(
+		"cluster_corner is deprecated. Use HDBScanClustering(data, standardize=None).cluster() followed by plot_highdim() instead.", 
+		DeprecationWarning, 
+		stacklevel=2
+	)
+	
+	# Use HDBScanClustering for clustering (no standardization to match original behavior)
+	clusterer = HDBScanClustering(data, standardize=None)
+	_, cluster_labels, cluster_probs = clusterer.cluster(verbosity=1, **kwargs)
 
 	corner_kwargs_ = dict(
 		bins=100, 
@@ -336,71 +342,17 @@ def cluster_corner(
 	)
 	plot_kwargs_.update(plot_kwargs)
 
-	if "approx_min_span_tree" not in kwargs:
-		kwargs["approx_min_span_tree"] = False
+	corner_kwargs_['data_kwargs'] = plot_kwargs_
 
-	clusterer = hdbscan.HDBSCAN(**kwargs).fit(data)
-	n_cluster = clusterer.labels_.max() + 1
-	print(f"Found {n_cluster} clusters")
-
-	color_palette = sns.color_palette('dark', n_cluster)
-	color_palette.insert(0, (0.5, 0.5, 0.5))
-
-	if plot_3d:
-		markers = []
-
-	else:
-		if not fig:
-			fig = plt.figure(figsize=(20, 20))
-		kwargs = dict(corner_kwargs_)
-		kwargs.update(plot_datapoints=False)
-		fig = corner.corner(
-			no_nan(data), 
-			fig=fig, 
-			color=(0., 0., 0.), 
-			data_kwargs=dict(plot_kwargs_), **kwargs)
-
-	for label in range(-1, n_cluster):
-		mask = clusterer.labels_ == label
-		data_cluster = no_nan(data[mask])
-
-		if data_cluster.shape[0] == 0:
-			continue
-
-		# circumvent assertion in corner package by adding first data as many times as needed
-		while data_cluster.shape[0] <= data_cluster.shape[1]:
-			data_cluster = np.concatenate((data_cluster, data_cluster[:1]))
-			warn(f"Padded data in cluster {label} to circumvent assertion error", stacklevel=2)
-
-		if plot_3d:
-			marker = go.Scatter3d(
-				x=data_cluster.T[0], 
-				y=data_cluster.T[1], 
-				z=data_cluster.T[2], 
-				marker=go.scatter3d.Marker(size=1, color=color_palette[label]), 
-				opacity=1, 
-				mode='markers'
-			)
-			markers.append(marker)
-
-		else:
-			fig = corner.corner(
-				data_cluster, 
-				fig=fig, 
-				color=color_palette[label], 
-				data_kwargs=dict(plot_kwargs_), **dict(corner_kwargs_))
-
-	if plot_3d:
-		layout = go.Layout(height=1000)
-		fig = go.Figure(data=markers, layout=layout)
-		fig.update_layout(scene_aspectmode='cube')
-		fig.show()
-
-	else:
-		ndim = data.shape[1]
-		hists1d = np.array(fig.axes).reshape((ndim, ndim)).diagonal()
-		for ax in hists1d:
-			ax.autoscale(axis='y')
+	# Create the plot using plot_highdim
+	plot_highdim(
+		data=data,
+		cluster_labels=cluster_labels,
+		cluster_probs=cluster_probs,
+		plot_type='3d' if plot_3d else 'corner',
+		fig=fig,
+		**corner_kwargs_
+	)
 
 	return fig
 
@@ -947,7 +899,17 @@ def do_clustering(
 	verbosity: int = 2, 
 	**kwargs
 ) -> tuple[Union[ArrayLike, pd.DataFrame], np.ndarray, np.ndarray]:
-	"""Deprecated: Use `HDBScanClustering.cluster` instead."""
+	"""
+	Deprecated: Use `HDBScanClustering.cluster` instead.
+	
+	.. deprecated::
+		Use `HDBScanClustering(data).cluster()` instead. This function will be removed in a future version.
+	"""
+	warn(
+		"do_clustering is deprecated. Use HDBScanClustering(data).cluster() instead.", 
+		DeprecationWarning, 
+		stacklevel=2
+	)
 	return HDBScanClustering(data).cluster(verbosity, **kwargs)
 
 
@@ -958,7 +920,17 @@ def do_clustering_scan(
 	n_processes: Optional[int] = None, 
 	return_range: bool = False
 ) -> Union['awkward.Array', tuple['awkward.Array', tuple[int, int, int, int]]]:
-	"""Deprecated: Use `HDBScanClustering.HyperparameterScan` instead."""
+	"""
+	Deprecated: Use `HDBScanClustering.HyperparameterScan` instead.
+	
+	.. deprecated::
+		Use `HDBScanClustering(data).HyperparameterScan()` instead. This function will be removed in a future version.
+	"""
+	warn(
+		"do_clustering_scan is deprecated. Use HDBScanClustering(data).HyperparameterScan() instead.", 
+		DeprecationWarning, 
+		stacklevel=2
+	)
 
 	if n_processes is None:
 		n_processes = max(1, os.cpu_count() - 2) if os.cpu_count() else 1
@@ -1265,7 +1237,7 @@ def plot_hyperparameter_scan(
 	"""
 	Plot the results of a HDBSCAN hyperparameter scan as a number of summary statistics.
 
-	.. deprecated:: 
+	.. deprecated::
 		Use `HDBScanClustering(data).plot_scan()` instead. This function will be removed in a future version.
 
 	Parameters
@@ -1290,7 +1262,7 @@ def plot_hyperparameter_scan(
 	figure
 		The generated matplotlib Figure object containing the plots.
 	"""
-	warnings.warn(
+	warn(
 		"plot_hyperparameter_scan is deprecated. Use HDBScanClustering(data).plot_scan() instead.", 
 		DeprecationWarning, 
 		stacklevel=2
