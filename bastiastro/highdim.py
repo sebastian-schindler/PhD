@@ -8,10 +8,10 @@ for astronomical data mining and parameter space exploration.
 
 # Python built-in imports
 import warnings
-from warnings import warn
 import os
 import tempfile
 from concurrent import futures
+
 
 # Third-party imports
 import numpy as np
@@ -24,6 +24,7 @@ import sklearn as sk
 
 # Package imports
 from bastiastro.core import no_nan
+from bastiastro import _warn as warn
 
 # Type checking imports
 from typing import TYPE_CHECKING, Any, Union, Optional, Iterable, Iterator
@@ -319,8 +320,7 @@ def cluster_corner(
 	"""
 	warn(
 		"cluster_corner is deprecated. Use HDBScanClustering(data, standardize=None).cluster() followed by plot_highdim() instead.", 
-		DeprecationWarning, 
-		stacklevel=2
+		deprecation=True
 	)
 	
 	# Use HDBScanClustering for clustering (no standardization to match original behavior)
@@ -907,8 +907,7 @@ def do_clustering(
 	"""
 	warn(
 		"do_clustering is deprecated. Use HDBScanClustering(data).cluster() instead.", 
-		DeprecationWarning, 
-		stacklevel=2
+		deprecation=True
 	)
 	return HDBScanClustering(data).cluster(verbosity, **kwargs)
 
@@ -928,8 +927,7 @@ def do_clustering_scan(
 	"""
 	warn(
 		"do_clustering_scan is deprecated. Use HDBScanClustering(data).HyperparameterScan() instead.", 
-		DeprecationWarning, 
-		stacklevel=2
+		deprecation=True
 	)
 
 	if n_processes is None:
@@ -993,11 +991,11 @@ def plot_highdim(
 	n_dim = data.shape[1]
 
 	if n_dim < 2:
-		raise ValueError("Cannot plot clusters of 1D data.")
+		raise ValueError("Only one dimension found in input data. Use regular histogramming instead.")
 
 	if plot_type == '3d' and n_dim != 3:
 		plot_type = None
-		print("Cannot plot 3D plot for dimensions other than 3. Reverting plot type to default.")
+		warn("Cannot plot 3D plot for dimensions other than 3. Reverting plot type to default.")
 
 	if plot_type is None:
 		if n_dim == 2:
@@ -1008,10 +1006,10 @@ def plot_highdim(
 			print("Using corner plot type.")
 
 	if plot_type == '2d' and n_dim > 2:
-		print(f"Using the first two dimensions for producing detailed 2D plot of {n_dim} dimensions.")
+		warn(f"Detailled 2D plot only works with 2 dimensions. Will use only the first 2 of {n_dim} dimensions now.")
 
 	if n_dim > 30:
-		warn(f"Do you really want to produce a corner plot of {n_dim} dimensions? Consider using a UMAP embedding instead.", stacklevel=2)
+		warn(f"Do you really want to produce a corner plot of {n_dim} dimensions? Consider using a UMAP embedding instead. Will continue, but may be slow...")
 
 	if cluster_labels is None:
 		cluster_labels = np.full(len(data), 0)
@@ -1264,8 +1262,7 @@ def plot_hyperparameter_scan(
 	"""
 	warn(
 		"plot_hyperparameter_scan is deprecated. Use HDBScanClustering(data).plot_scan() instead.", 
-		DeprecationWarning, 
-		stacklevel=2
+		deprecation=True
 	)
 	
 	# Create a dummy clusterer instance just for accessing the plot_scan method

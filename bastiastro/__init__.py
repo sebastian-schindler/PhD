@@ -13,6 +13,7 @@ Usage:
 """
 
 from types import ModuleType
+from typing import Any
 
 def _lazy_import(module_name: str) -> ModuleType:
 	"""
@@ -56,6 +57,21 @@ def _lazy_import(module_name: str) -> ModuleType:
 			f"Optional dependency '{module_name}' is not installed. "
 			f"Install it with: pip install {module_name}"
 		) from None
+
+
+from warnings import warn
+
+def _warn(message: str, deprecation: bool = False, **kwargs: Any) -> None:
+	"""Wrapper for warnings.warn with stacklevel=2 default and deprecation flag."""
+	# Set default stacklevel if not provided
+	if 'stacklevel' not in kwargs:
+		kwargs['stacklevel'] = 2
+	
+	# Set category based on deprecation flag
+	if 'category' not in kwargs:
+		kwargs['category'] = DeprecationWarning if deprecation else UserWarning
+	
+	return warn(message, **kwargs)
 
 # Import everything from submodules for backwards compatibility
 from .core import *
