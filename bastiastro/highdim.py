@@ -285,7 +285,7 @@ def cluster_corner(
 	Create corner plot with HDBSCAN clustering visualization.
 	
 	.. deprecated::
-		Use `HDBScanClustering(data, standardize=None).cluster()` followed by `plot_highdim()` instead. 
+		Use `HDBScanClustering(data, standardize=None).cluster(verbosity=1, **kwargs)` followed by `plot_highdim()` instead. 
 		This function will be removed in a future version.
 	
 	This function performs HDBSCAN clustering on the input data and visualizes
@@ -319,7 +319,7 @@ def cluster_corner(
 		If required packages (hdbscan, corner, or plotly) are not installed.
 	"""
 	warn(
-		"cluster_corner is deprecated. Use HDBScanClustering(data, standardize=None).cluster() followed by plot_highdim() instead.", 
+		"cluster_corner is deprecated. Use HDBScanClustering(data, standardize=None).cluster(verbosity=1, **kwargs) followed by plot_highdim() instead.", 
 		deprecation=True
 	)
 	
@@ -903,10 +903,10 @@ def do_clustering(
 	Deprecated: Use `HDBScanClustering.cluster` instead.
 	
 	.. deprecated::
-		Use `HDBScanClustering(data).cluster()` instead. This function will be removed in a future version.
+		Use `HDBScanClustering(data).cluster(verbosity, **kwargs)` instead. This function will be removed in a future version.
 	"""
 	warn(
-		"do_clustering is deprecated. Use HDBScanClustering(data).cluster() instead.", 
+		"do_clustering is deprecated. Use HDBScanClustering(data).cluster(verbosity, **kwargs) instead.", 
 		deprecation=True
 	)
 	return HDBScanClustering(data).cluster(verbosity, **kwargs)
@@ -923,10 +923,11 @@ def do_clustering_scan(
 	Deprecated: Use `HDBScanClustering.HyperparameterScan` instead.
 	
 	.. deprecated::
-		Use `HDBScanClustering(data).HyperparameterScan()` instead. This function will be removed in a future version.
+		Use `HDBScanClustering(data).HyperparameterScan(scan_cluster_size, scan_samples, n_processes).scan_summary(return_range)` 
+		instead (note that its return value differs). This function will be removed in a future version.
 	"""
 	warn(
-		"do_clustering_scan is deprecated. Use HDBScanClustering(data).HyperparameterScan() instead.", 
+		"do_clustering_scan is deprecated. Use HDBScanClustering(data).HyperparameterScan(scan_cluster_size, scan_samples, n_processes).scan_summary(return_range) instead.", 
 		deprecation=True
 	)
 
@@ -1222,7 +1223,8 @@ def plot_hyperparameter_scan(
 	Plot the results of a HDBSCAN hyperparameter scan as a number of summary statistics.
 
 	.. deprecated::
-		Use `HDBScanClustering(data).plot_scan()` instead. This function will be removed in a future version.
+		Use `HDBScanClustering(data, standardize=None).plot_scan(cluster_scan, ranges, trunc_clusters=n_cluster_trunc, **kwargs)` 
+		instead. This function will be removed in a future version.
 
 	Parameters
 	----------

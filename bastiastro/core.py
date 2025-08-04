@@ -7,7 +7,6 @@ Python objects.
 """
 
 # Python built-in imports
-from warnings import warn
 import os.path as pth
 import pickle as pkl
 
@@ -18,6 +17,9 @@ import pandas as pd
 # Type checking imports
 from typing import Any, Union
 from numpy.typing import ArrayLike
+
+# Package imports
+from bastiastro import _warn as warn
 
 
 def no_nan(*arrays: Union[ArrayLike, pd.DataFrame]) -> Union[ArrayLike, pd.DataFrame, list[ArrayLike]]:
@@ -143,11 +145,11 @@ def pickle_load(filename: str) -> Any:
 # Backward compatibility aliases
 def pickle(filename: str, *objects) -> tuple:
 	"""Deprecated: Use pickle_save instead."""
-	warn("Function 'pickle' is deprecated. Use 'pickle_save' instead.", DeprecationWarning, stacklevel=2)
+	warn("pickle is deprecated. Use pickle_save instead.", deprecation=True)
 	return pickle_save(filename, *objects)
 
 
 def unpickle(filename: str) -> Any:
 	"""Deprecated: Use pickle_load instead."""
-	warn("Function 'unpickle' is deprecated. Use 'pickle_load' instead.", DeprecationWarning, stacklevel=2)
+	warn("unpickle is deprecated. Use pickle_load instead.", deprecation=True)
 	return pickle_load(filename)
